@@ -28,8 +28,7 @@ jobs:
               SKIP_LOGIN: true
         - run: |
                 docker run -t --rm --name builder -v `pwd`:`pwd` -w `pwd` zerofo/ns_dev:0.4 make
-                cd sdcard_out
-                zip -r SaltyNX.zip ./*
+                cd sdcard_out && sudo -E zip -r SaltyNX.zip ./
 
         - name: Upload file
           uses: actions/upload-artifact@v2
