@@ -77,7 +77,7 @@ void SaltySDCore_LoadPatches (bool Aarch64) {
 	
 	SaltySDCore_printf("SaltySD Patcher: Searching patches in dir '/'...\n");
 	
-	snprintf(tmp4, 0x100, "sdmc:/SaltySD/patches/");
+	snprintf(tmp4, 0x100, "sdmc:/switch/SaltySD/patches/");
 
 	d = opendir(tmp4);
 	if (d)
@@ -147,7 +147,7 @@ void SaltySDCore_LoadPatches (bool Aarch64) {
 	
 	SaltySDCore_printf("SaltySD Patcher: Searching patches in dir '/%016llx'...\n", tid);
 	
-	snprintf(tmp4, 0x100, "sdmc:/SaltySD/patches/%016" PRIx64 "/", tid);
+	snprintf(tmp4, 0x100, "sdmc:/switch/SaltySD/patches/%016" PRIx64 "/", tid);
 
 	d = opendir(tmp4);
 	if (d)
@@ -372,7 +372,7 @@ void** SaltySDCore_LoadPluginsInDir(char* path, void** entries, size_t* num_elfs
 
 	SaltySDCore_printf("SaltySD Core: Searching plugin dir `%s'...\n", path);
 	
-	snprintf(tmp, 0x100, "sdmc:/SaltySD/plugins/%s", path);
+	snprintf(tmp, 0x100, "sdmc:/switch/SaltySD/plugins/%s", path);
 
 	d = opendir(tmp);
 	if (d)

@@ -9,7 +9,7 @@ endif
 TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/devkitA64/base_rules
 
-all: libnx_min/nx/lib/libnx_min.a sdcard_out/SaltySD/saltysd_core.elf sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp
+all: libnx_min/nx/lib/libnx_min.a sdcard_out/switch/SaltySD/saltysd_core.elf sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp
 
 libnx_min/nx/lib/libnx_min.a:
 	@cd libnx_min && make
@@ -27,18 +27,18 @@ saltysd_proc/data/saltysd_bootstrap.elf: saltysd_bootstrap/saltysd_bootstrap.elf
 	@mkdir -p saltysd_proc/data/
 	@cp $< $@
 
-sdcard_out/SaltySD/saltysd_core.elf: saltysd_core/saltysd_core.elf
-	@mkdir -p sdcard_out/SaltySD/
+sdcard_out/switch/SaltySD/saltysd_core.elf: saltysd_core/saltysd_core.elf
+	@mkdir -p sdcard_out/switch/SaltySD/
 	@cp $< $@
 
 sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp: saltysd_proc/saltysd_proc.nsp
 	@mkdir -p sdcard_out/atmosphere/contents/0000000000534C56/flags
 	@cp $< $@
 	@touch sdcard_out/atmosphere/contents/0000000000534C56/flags/boot2.flag
-	@mkdir -p sdcard_out/SaltySD/flags/
-	@mkdir -p sdcard_out/SaltySD/patches/
-	@touch sdcard_out/SaltySD/flags/log.flag
-	@cp exceptions.txt sdcard_out/SaltySD/exceptions.txt
+	@mkdir -p sdcard_out/switch/SaltySD/flags/
+	@mkdir -p sdcard_out/switch/SaltySD/patches/
+	@touch sdcard_out/switch/SaltySD/flags/log.flag
+	@cp exceptions.txt sdcard_out/switch/SaltySD/exceptions.txt
 	@cp toolbox.json sdcard_out/atmosphere/contents/0000000000534C56/toolbox.json
 
 
