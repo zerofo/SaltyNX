@@ -11,14 +11,14 @@ jobs:
       runs-on: ubuntu-latest
     
       steps:
-        - name: Extract owner and repo
-          uses: jungwinter/split@v1
-          id: repo
-          with:
-            seperator: /
-            msg: ${{ github.repository }}
+#         - name: Extract owner and repo
+#           uses: jungwinter/split@v2
+#           id: repo
+#           with:
+#             seperator: /
+#             msg: ${{ github.repository }}
         - name: Checkout
-          uses: actions/checkout@v2
+          uses: actions/checkout@v3
           with:
             ref: master
             submodules: recursive
@@ -27,13 +27,13 @@ jobs:
           env:
               SKIP_LOGIN: true
         - run: |
-                docker run -t --rm --name builder -v `pwd`:`pwd` -w `pwd` zerofo/ns_dev:0.4 make
+                docker run -t --rm --name builder -v `pwd`:`pwd` -w `pwd` zerofo/ns_dev:0.9b2 make
                 cd sdcard_out && sudo -E zip -r SaltyNX.zip ./
 
         - name: Upload file
           uses: actions/upload-artifact@v2
           with:
-            name: ${{ steps.repo.outputs._1 }} 
+            name: SaltyNX 
             path: ./sdcard_out/SaltyNX.zip
         - name: Upload binaries to release
           uses: svenstaro/upload-release-action@v2
