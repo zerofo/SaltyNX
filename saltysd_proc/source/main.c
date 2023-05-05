@@ -123,7 +123,7 @@ void hijack_pid(u64 pid)
 	u32 threads;
 	Handle debug;
 	
-	FILE* disabled = fopen("sdmc:/SaltySD/flags/disable.flag", "r");
+	FILE* disabled = fopen("sdmc:/switch/SaltySD/flags/disable.flag", "r");
 	u8 disable = 1;
 	
 	if (disabled == NULL) {
@@ -212,7 +212,7 @@ void hijack_pid(u64 pid)
 			snprintf(titleidnum, sizeof titleidnum, "%016"PRIx64, eventinfo.tid);
 			snprintf(titleidnumF, sizeof titleidnumF, "X%016"PRIx64, eventinfo.tid);
 			
-			FILE* except = fopen("sdmc:/SaltySD/exceptions.txt", "r");
+			FILE* except = fopen("sdmc:/switch/SaltySD/exceptions.txt", "r");
 			if (except) {
 				while (fgets(line, sizeof(line), except)) {
 					snprintf(exceptions, sizeof exceptions, "%s", line); 
@@ -313,11 +313,11 @@ Result handleServiceCmd(int cmd)
 		uint8_t* elf_data = NULL;
 		u32 elf_size = 0;
 
-		snprintf(path, 96, "sdmc:/SaltySD/plugins/%s", name);
+		snprintf(path, 96, "sdmc:/switch/SaltySD/plugins/%s", name);
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
-			snprintf(path, 96, "sdmc:/SaltySD/%s", name);
+			snprintf(path, 96, "sdmc:/switch/SaltySD/%s", name);
 			f = fopen(path, "rb");
 		}
 
