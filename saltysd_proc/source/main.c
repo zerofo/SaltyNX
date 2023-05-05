@@ -26,6 +26,8 @@ bool already_hijacking = false;
 DebugEventInfo eventinfo;
 bool check = false;
 u64 exception = 0x0;
+SharedMemory _sharedMemory = {};
+size_t reservedSharedMemory = 0;
 
 void __libnx_initheap(void)
 {
@@ -50,6 +52,7 @@ void __appExit(void)
 }
 
 u64 TIDnow;
+u64 PIDnow;
 
 void renametocheatstemp() {
 	char cheatspath[60];
@@ -82,6 +85,8 @@ void hijack_bootstrap(Handle* debug, u64 pid, u64 tid)
 {
 	ThreadContext context;
 	Result ret;
+
+	reservedSharedMemory = 0;
 	
 	ret = svcGetDebugThreadContext(&context, *debug, tid, RegisterGroup_All);
 	if (ret)
@@ -152,11 +157,7 @@ void hijack_pid(u64 pid)
 	char exceptions[20];
 	char line[20];
 	char titleidnum[20];
-	char titleidnumn[20];
-	char titleidnumrn[20];
 	char titleidnumF[20];
-	char titleidnumnF[20];
-	char titleidnumrnF[20];
 
 	while (1)
 	{
@@ -194,6 +195,11 @@ void hijack_pid(u64 pid)
 			if (!eventinfo.isA64)
 			{
 				SaltySD_printf("SaltySD: ARM32 applications plugins are not supported, aborting bootstrap...\n");
+				if (!shmemMap(&_sharedMemory)) {
+					memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
+					shmemUnmap(&_sharedMemory);
+				}
+
 				goto abort_bootstrap;
 			}
 			char* hbloader = "hbloader";
@@ -204,38 +210,28 @@ void hijack_pid(u64 pid)
 			}
 			
 			snprintf(titleidnum, sizeof titleidnum, "%016"PRIx64, eventinfo.tid);
-			snprintf(titleidnumn, sizeof titleidnumn, "%016"PRIx64"\n", eventinfo.tid);
-			snprintf(titleidnumrn, sizeof titleidnumrn, "%016"PRIx64"\r\n", eventinfo.tid);
 			snprintf(titleidnumF, sizeof titleidnumF, "X%016"PRIx64, eventinfo.tid);
-			snprintf(titleidnumnF, sizeof titleidnumnF, "X%016"PRIx64"\n", eventinfo.tid);
-			snprintf(titleidnumrnF, sizeof titleidnumrnF, "X%016"PRIx64"\r\n", eventinfo.tid);
 			
 			FILE* except = fopen("sdmc:/SaltySD/exceptions.txt", "r");
 			if (except) {
 				while (fgets(line, sizeof(line), except)) {
 					snprintf(exceptions, sizeof exceptions, "%s", line); 
-					int thesame = strcasecmp(exceptions, titleidnum);
-					int thesame2 = strcasecmp(exceptions, titleidnumn);
-					int thesame3 = strcasecmp(exceptions, titleidnumrn);
-					int thesame4 = strcasecmp(exceptions, titleidnumF);
-					int thesame5 = strcasecmp(exceptions, titleidnumnF);
-					int thesame6 = strcasecmp(exceptions, titleidnumrnF);
-					if ((thesame4 == 0) || (thesame5 == 0) || (thesame6 == 0)) {
+					if (!strncasecmp(exceptions, titleidnumF, 17)) {
 						SaltySD_printf("SaltySD: TID %016llx is forced in exceptions.txt, aborting bootstrap...\n", eventinfo.tid);
+						if (!shmemMap(&_sharedMemory)) {
+							memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
+							shmemUnmap(&_sharedMemory);
+						}
 						fclose(except);
 						goto abort_bootstrap;
 					}
-					else if ((thesame == 0) || (thesame2 == 0) || (thesame3 == 0)) {
+					else if (!strncasecmp(exceptions, titleidnum, 16)) {
 						SaltySD_printf("SaltySD: TID %016llx is in exceptions.txt, aborting loading plugins...\n", eventinfo.tid);
+						if (!shmemMap(&_sharedMemory)) {
+							memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
+							shmemUnmap(&_sharedMemory);
+						}
 						exception = 0x1;
-					}
-					else {
-						thesame = 0;
-						thesame2 = 0;
-						thesame3 = 0;
-						thesame4 = 0;
-						thesame5 = 0;
-						thesame6 = 0;
 					}
 				}
 				fclose(except);
@@ -469,6 +465,122 @@ Result handleServiceCmd(int cmd)
 
 		ret = 0;
 	}
+	else if (cmd == 6) // CheckIfSharedMemoryAvailable
+	{		
+		IpcParsedCommand r = {0};
+		ipcParse(&r);
+
+		struct {
+			u64 magic;
+			u64 cmd_id;
+			u64 size;
+			u64 reserved;
+		} *resp = r.Raw;
+
+		u64 new_size = resp->size;
+
+		SaltySD_printf("SaltySD: cmd 6 handler, size: %d\n", new_size);
+
+		struct {
+			u64 magic;
+			u64 result;
+			u64 offset;
+			u64 reserved;
+		} *raw;
+
+		raw = ipcPrepareHeader(&c, sizeof(*raw));
+
+		raw->magic = SFCO_MAGIC;
+		if (!new_size) {
+			SaltySD_printf("SaltySD: cmd 6 failed. Wrong size.");
+			raw->offset = 0;
+			raw->result = 0xFFE;
+		}
+		else if (new_size < (_sharedMemory.size - reservedSharedMemory)) {
+			if (!shmemMap(&_sharedMemory)) {
+				if (!reservedSharedMemory) {
+					memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
+				}
+				raw->result = 0;
+				raw->offset = reservedSharedMemory;
+				reservedSharedMemory += new_size;
+				if (reservedSharedMemory % 4 != 0) {
+					reservedSharedMemory += (4 - (reservedSharedMemory % 4));
+				}
+				shmemUnmap(&_sharedMemory);
+			}
+			else {
+				SaltySD_printf("SaltySD: cmd 6 failed. shmemMap error.");
+				raw->offset = -1;
+				raw->result = 0xFFE;
+			}
+		}
+		else {
+			SaltySD_printf("SaltySD: cmd 6 failed. Not enough free space. Left: %d\n", (_sharedMemory.size - reservedSharedMemory));
+			raw->offset = -1;
+			raw->result = 0xFFE;
+		}
+
+		return 0;
+	}
+	else if (cmd == 7) // GetSharedMemoryHandle
+	{
+		SaltySD_printf("SaltySD: cmd 7 handler\n");
+
+		ipcSendHandleCopy(&c, _sharedMemory.handle);
+	}
+	else if (cmd == 8) { // Get BID
+
+		IpcParsedCommand r = {0};
+		ipcParse(&r);
+
+		SaltySD_printf("SaltySD: cmd 8 handler\n");
+
+		u64 BID = 0;
+
+		ret = ldrDmntInitialize();
+		LoaderModuleInfo* module_infos = (LoaderModuleInfo*)malloc(sizeof(LoaderModuleInfo) * 16);
+		u32 module_infos_count = 0;
+		if (R_SUCCEEDED(ret)) {
+			ret = ldrDmntGetModuleInfos(PIDnow, module_infos, 16, &module_infos_count);
+			ldrDmntExit();
+		}
+		if (R_SUCCEEDED(ret)) {
+			for (int itr = 0; itr < module_infos_count; itr++) {
+				static u64 comp_address = 0;
+				ret = 0xFFDE;
+				if (!comp_address) {
+					comp_address = module_infos[itr].base_address;
+					continue;
+				}
+				if ((module_infos[itr].base_address - comp_address == 0x4000) || (module_infos[itr].base_address - comp_address == 0x6000)) {
+					for (int itr2 = 0; itr2 < 8; itr2++) {
+						*(uint8_t*)((uint64_t)&BID+itr2) = module_infos[itr].build_id[itr2];
+					}
+					BID = __builtin_bswap64(BID);
+					SaltySD_printf("SaltySD: cmd 8 Main found. BID: %016lX\n", BID);
+					ret = 0;
+					itr = module_infos_count;
+				}
+				else comp_address = module_infos[itr].base_address;
+			}
+		}
+		free(module_infos);
+
+		struct {
+			u64 magic;
+			u64 result;
+		} *raw;
+
+		raw = ipcPrepareHeader(&c, sizeof(*raw));
+		raw->magic = SFCO_MAGIC;
+		if (!ret) {
+			raw->result = BID;
+		}
+		else raw->result = 0;
+
+		return 0;
+	}
 	else if (cmd == 9) // Exception
 	{
 		IpcParsedCommand r = {0};
@@ -658,6 +770,8 @@ int main(int argc, char *argv[])
 	svcManageNamedPort(&saltyport, "SaltySD", 1);
 	svcManageNamedPort(&injectserv, "InjectServ", 1);
 
+	shmemCreate(&_sharedMemory, 0x1000, Perm_Rw, Perm_Rw);
+
 	// Main service loop
 	u64* pids = malloc(0x200 * sizeof(u64));
 	u64 max = 0;
@@ -678,6 +792,7 @@ int main(int argc, char *argv[])
 		// Detected new PID
 		if (max != old_max && max > 0x80)
 		{
+			PIDnow = max;
 			hijack_pid(max);
 		}
 		

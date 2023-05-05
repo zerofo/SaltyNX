@@ -6,6 +6,7 @@ Created by: https://github.com/shinyquagsire23
 
 This fork includes many QoL improvements and beside plugins support also supports patches.
 
+![GitHub all releases](https://img.shields.io/github/downloads/masagrator/SaltyNX/total?style=for-the-badge)
 ---
 
 Patches pattern:
@@ -17,9 +18,7 @@ For additional functions you need SaltyNX-Tool
 
 https://github.com/masagrator/SaltyNX-Tool
 
-Tests were done on FW 7.0.1-13.0.0, Atmosphere 0.9.1-0.9.4, 0.10.1-0.10.4, 0.11.1-0.13.0, 0.14.4-0.17.1, 0.18.1, 0.19.1, 1.1.0 / Mariko and Erista
-
-SX OS older than 2.9 are not working. Tested only on sysNAND 9.0.0, 2.9.2
+Tests were done on FW 7.0.1-16.0.0 with Atmosphere up to 1.5.0
 
 No technical support for:
 - Atmosphere forks
@@ -61,18 +60,21 @@ Remember to restart Switch
 | LIMBO | all | 32-bit game, not supported |
 | Luigi's Mansion 3 | plugins | Heap related |
 | Mario Kart 8 | all | 32-bit game, not supported |
+| Mario Strikers: Battle League | plugins | Heap related |
 | Megadimension Neptunia VII | all | 32-bit game, not supported |
 | Moero Chronicle Hyper | all | 32-bit game, not supported |
 | Moero Crystal H | all | 32-bit game, not supported |
 | Monster Hunter Generations Ultimate | all | 32-bit game, not supported |
 | New Super Mario Bros. U Deluxe | all | 32-bit game, not supported |
 | Ni no Kuni: Wrath of the White Witch | all | 32-bit game, not supported |
-| Olympic Games Tokyo 2020 – The Official Video Game™ | all | Heap related |
+| Olympic Games Tokyo 2020 – The Official Video Game™ | plugins | Heap related |
 | Pikmin 3 Deluxe | all | 32-bit game, not supported |
 | Planescape: Torment and Icewind Dale | all | 32-bit game, not supported |
+| Sherlock Holmes and The Hound of The Baskervilles | all | 32-bit game, not supported |
 | Stubbs the Zombie in Rebel Without a Pulse | all | heap related |
 | Tokyo Mirage Session #FE Encore | all | 32-bit game, not supported |
 | Valkyria Chronicles | all | 32-bit game, not supported |
+| Witcher 3 GOTY (version 3.2) | all | heap related |
 | World of Goo | all | 32-bit game, not supported |
 | YouTube | plugins | Unknown |
 
