@@ -302,7 +302,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 		*(Shared.API) = 3;
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 	}
-	if (FPStiming && !LOCK::blockDelayFPS && *(Shared.displaySync) < *(Shared.FPSlocked)) {
+	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
 		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
 			FPSlock_delayed = true;
 		}
@@ -402,7 +402,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 		*(Shared.API) = 2;
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 	}
-	if (FPStiming && !LOCK::blockDelayFPS && *(Shared.displaySync) < *(Shared.FPSlocked)) {
+	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
 		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
 			FPSlock_delayed = true;
 		}
@@ -593,7 +593,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		}
 	}
 
-	if (FPStiming && !LOCK::blockDelayFPS && *(Shared.displaySync) < *(Shared.FPSlocked)) {
+	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
 		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
 			FPSlock_delayed = true;
 		}
