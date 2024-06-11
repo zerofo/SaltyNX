@@ -220,7 +220,7 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 		*(Shared.API) = 3;
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 	}
-	if (FPStiming && !LOCK::blockDelayFPS) {
+	if (FPStiming && !LOCK::blockDelayFPS && *(Shared.displaySync) < *(Shared.FPSlocked)) {
 		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
 			FPSlock_delayed = true;
 		}
