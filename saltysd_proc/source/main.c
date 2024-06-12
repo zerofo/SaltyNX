@@ -66,9 +66,7 @@ bool SetDisplayRefreshRate(uint32_t refreshRate) {
 	if (refreshRate > 79 || refreshRate < 31)
 		return false;
 	uint32_t value = *(uint32_t*)(clkVirtAddr + 0xD0) & 0xFFFF00FF;
-	refreshRate <<= 5;
-	refreshRate /= 10;
-	*(uint32_t*)(clkVirtAddr + 0xD0) = value | (refreshRate << 8);
+	*(uint32_t*)(clkVirtAddr + 0xD0) = value | ((refreshRate << 12) / 5);
 	return true;
 }
 
@@ -985,7 +983,7 @@ int main(int argc, char *argv[])
 			svcCloseHandle(sesja);
 		}
 
-		svcSleepThread(50*1000*1000);
+		svcSleepThread(10*1000*1000);
 	}
 	free(pids);
 	
