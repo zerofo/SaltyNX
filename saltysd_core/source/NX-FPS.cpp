@@ -67,21 +67,24 @@ Result readConfig(const char* path, uint8_t** output_buffer) {
 	FILE* patch_file = SaltySDCore_fopen(path, "rb");
 	SaltySDCore_fseek(patch_file, 0, 2);
 	configSize = SaltySDCore_ftell(patch_file);
+	SaltySDCore_fseek(patch_file, 8, 0);
+	uint32_t header_size = 0;
+	SaltySDCore_fread(&header_size, 0x4, 1, patch_file);
+	uint8_t* buffer = (uint8_t*)calloc(1, header_size);
 	SaltySDCore_fseek(patch_file, 0, 0);
-	uint8_t* buffer = (uint8_t*)calloc(1, 0x34);
-	SaltySDCore_fread(buffer, 0x34, 1, patch_file);
-	if (SaltySDCore_ftell(patch_file) != 0x34 || !LOCK::isValid(buffer, 0x34)) {
+	SaltySDCore_fread(buffer, header_size, 1, patch_file);
+	if (SaltySDCore_ftell(patch_file) != header_size || !LOCK::isValid(buffer, header_size)) {
 		SaltySDCore_fclose(patch_file);
 		free(buffer);
 		return 1;
 	}
 	if (LOCK::gen == 2) {
-		Result ret = LOCK::applyMasterWrite(patch_file, configSize);
+		Result ret = LOCK::applyMasterWrite(patch_file, configSize, header_size - 4);
 		if (R_FAILED(ret))  {
 			SaltySDCore_fclose(patch_file);
 			return ret;
 		}
-		configSize = *(uint32_t*)(&(buffer[0x30]));
+		configSize = *(uint32_t*)(&(buffer[header_size - 4]));
 	}
 	free(buffer);
 	buffer = (uint8_t*)calloc(1, configSize);
@@ -264,7 +267,7 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
 		if (changeFPS && !configRC && FPSlock) {
-			LOCK::applyPatch(configBuffer, configSize, FPSlock);
+			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
 		}
 	}
@@ -346,7 +349,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
 		if (changeFPS && !configRC && FPSlock) {
-			LOCK::applyPatch(configBuffer, configSize, FPSlock);
+			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
 		}
 	}
@@ -446,7 +449,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
 		if (changeFPS && !configRC && FPSlock) {
-			LOCK::applyPatch(configBuffer, configSize, FPSlock);
+			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
 		}
 	}
@@ -637,7 +640,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		*(Shared.FPS) = Stats.FPS;
 		*(Shared.FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 		if (changeFPS && !configRC && FPSlock) {
-			LOCK::applyPatch(configBuffer, configSize, FPSlock);
+			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
 		}
 	}
