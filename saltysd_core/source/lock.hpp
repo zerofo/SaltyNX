@@ -135,8 +135,8 @@ namespace LOCK {
 		gen = buffer[4];
 		if (gen < 1 || gen > 2)
 			return false;
-		uint16_t ALL_FPS = *(uint16_t*)(&(buffer[5]));
-		if (ALL_FPS > 1)
+		uint16_t test = *(uint16_t*)(&(buffer[5]));
+		if (test != 0)
 			return false;
 		if (buffer[7] > 1)
 			return false;
@@ -144,7 +144,6 @@ namespace LOCK {
 		uint8_t start_offset = 0x30;
 		if (gen == 2)
 			start_offset += 4;
-		if (ALL_FPS) start_offset += 0x10;
 		if (*(uint32_t*)(&(buffer[8])) != start_offset)
 			return false;
 		return true;
