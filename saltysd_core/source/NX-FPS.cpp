@@ -298,6 +298,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 	static uint32_t FPStiming = 0;
 	static uint8_t FPStickItr = 0;
 	static uint8_t range = 0;
+	static uint8_t rangeoverride = 0;
 	
 	bool FPSlock_delayed = false;
 	
@@ -305,11 +306,25 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 		*(Shared.API) = 3;
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 	}
-	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+
+	uint32_t FPStimingoverride = 0;
+	if (LOCK::overwriteRefreshRate > 0) {
+		if (LOCK::overwriteRefreshRate >= 60.0) {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 8000;
+			FPStimingoverride += 20 * rangeoverride;
+		}
+		else {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 6000;		
+			FPStimingoverride += 20 * rangeoverride;
+		}
+	}
+	
+
+	if ((FPStiming && !LOCK::blockDelayFPS && (*(Shared.displaySync) == FPSlock || (*(Shared.displaySync) == 0 && (FPSlock == 60 || FPSlock == 30))))|| FPStimingoverride) {
+		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 		}
 	}
@@ -331,6 +346,17 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 			if (range > 0) {
 				FPStiming -= 20;
 				range--;
+			}
+		}
+
+		if (Stats.FPSavg > LOCK::overwriteRefreshRate) {
+			if (rangeoverride < 200) {
+				rangeoverride++;
+			}
+		}
+		else if ((std::lround(Stats.FPSavg) == LOCK::overwriteRefreshRate) && (Stats.FPSavg <  LOCK::overwriteRefreshRate)) {
+			if (rangeoverride > 0) {
+				rangeoverride--;
 			}
 		}
 	}
@@ -398,6 +424,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 	static uint32_t FPStiming = 0;
 	static uint8_t FPStickItr = 0;
 	static uint8_t range = 0;
+	static uint8_t rangeoverride = 0;
 	
 	bool FPSlock_delayed = false;
 
@@ -405,11 +432,25 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 		*(Shared.API) = 2;
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 	}
-	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+
+	uint32_t FPStimingoverride = 0;
+	if (LOCK::overwriteRefreshRate > 0) {
+		eglInterval(EGLDisplay, -1);
+		if (LOCK::overwriteRefreshRate >= 60.0) {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 8000;
+			FPStimingoverride += 20 * rangeoverride;
+		}
+		else {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 6000;		
+			FPStimingoverride += 20 * rangeoverride;
+		}
+	}
+	
+	if ((FPStiming && !LOCK::blockDelayFPS && (*(Shared.displaySync) == FPSlock || (*(Shared.displaySync) == 0 && (FPSlock == 60 || FPSlock == 30)))) || FPStimingoverride) {
+		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 		}
 	}
@@ -431,6 +472,16 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 			if (range > 0) {
 				FPStiming -= 20;
 				range--;
+			}
+		}
+		if (Stats.FPSavg > LOCK::overwriteRefreshRate) {
+			if (rangeoverride < 200) {
+				rangeoverride++;
+			}
+		}
+		else if ((std::lround(Stats.FPSavg) == LOCK::overwriteRefreshRate) && (Stats.FPSavg <  LOCK::overwriteRefreshRate)) {
+			if (rangeoverride > 0) {
+				rangeoverride--;
 			}
 		}
 	}
@@ -576,6 +627,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 	static uint32_t FPStiming = 0;
 	static uint8_t FPStickItr = 0;
 	static uint8_t range = 0;
+	static uint8_t rangeoverride = 0;
 	
 	bool FPSlock_delayed = false;
 
@@ -583,9 +635,9 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 		*(Shared.FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 	}
-	
+
 	if (FPSlock) {
-		if ((*(Shared.ZeroSync) == ZeroSyncType_None) && FPStiming && (FPSlock == 60 || FPSlock == 30)) {
+		if ((*(Shared.ZeroSync) == ZeroSyncType_None) && FPStiming && (*(Shared.displaySync) == FPSlock || (*(Shared.displaySync) == 0 && (FPSlock == 60 || FPSlock == 30)))) {
 			FPStiming = 0;
 		}
 		else if ((*(Shared.ZeroSync) != ZeroSyncType_None) && !FPStiming) {
@@ -596,11 +648,24 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		}
 	}
 
-	if (FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+	uint32_t FPStimingoverride = 0;
+	if (LOCK::overwriteRefreshRate > 0) {
+		nvnSetPresentInterval(nvnWindow, -1);
+		if (LOCK::overwriteRefreshRate >= 60.0) {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 8000;
+			FPStimingoverride += 20 * rangeoverride;
+		}
+		else {
+			FPStimingoverride = (uint32_t)((double)systemtickfrequency / LOCK::overwriteRefreshRate) - 6000;		
+			FPStimingoverride += 20 * rangeoverride;
+		}
+	}
+
+	if ((FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) || FPStimingoverride) {
+		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < FPStiming) {
+		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 		}
 	}
@@ -615,7 +680,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 	frameavg = ((9*frameavg) + framedelta) / 10;
 	Stats.FPSavg = systemtickfrequency / (float)frameavg;
 
-	if (FPSlock_delayed && FPStiming) {
+	if ((FPSlock_delayed && FPStiming) || FPStimingoverride) {
 		if (Stats.FPSavg > ((float)FPSlock)) {
 			if (range < 200) {
 				FPStiming += 20;
@@ -626,6 +691,17 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 			if (range > 0) {
 				FPStiming -= 20;
 				range--;
+			}
+		}
+
+		if (Stats.FPSavg > LOCK::overwriteRefreshRate) {
+			if (rangeoverride < 200) {
+				rangeoverride++;
+			}
+		}
+		else if ((std::lround(Stats.FPSavg) == LOCK::overwriteRefreshRate) && (Stats.FPSavg <  LOCK::overwriteRefreshRate)) {
+			if (rangeoverride > 0) {
+				rangeoverride--;
 			}
 		}
 	}
@@ -656,7 +732,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 			changeFPS = false;
 			FPSlock = *(Shared.FPSlocked);
 		}
-		else if (*(Shared.FPSlocked) <= 30) {
+		else if (*(Shared.displaySync) == 0 && (*(Shared.FPSlocked) <= 30)) {
 			nvnSetPresentInterval(nvnWindow, -2);
 			if (*(Shared.FPSlocked) != 30 || *(Shared.ZeroSync)) {
 				if (*(Shared.FPSlocked) == 30) {

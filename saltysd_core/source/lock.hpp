@@ -10,6 +10,7 @@ namespace LOCK {
 	bool blockDelayFPS = false;
 	uint8_t gen = 0;
 	bool MasterWriteApplied = false;
+	double overwriteRefreshRate = 0;
 
 	struct {
 		int64_t main_start;
@@ -222,6 +223,7 @@ namespace LOCK {
 	Result applyPatch(uint8_t* buffer, size_t filesize, uint8_t FPS, uint8_t refreshRate = 0) {
 		uint8_t orig_FPS = FPS;
 		bool setRefreshRate = false;
+		overwriteRefreshRate = 0;
 		FPS -= 15;
 		FPS /= 5;
 		if (refreshRate == orig_FPS && orig_FPS >= 40 && orig_FPS <= 55 && *(uint32_t*)(&buffer[8]) > 0x34) {
@@ -294,6 +296,11 @@ namespace LOCK {
 						}
 						break;
 					}
+					case 0x38:
+						for (uint8_t i = 0; i < loops; i++) {
+							overwriteRefreshRate = readDouble(buffer);
+							address += 8;
+						}						
 					default:
 						return 3;
 				}
@@ -425,6 +432,13 @@ namespace LOCK {
 						}
 						break;
 					}
+					case 0x38:
+						for (uint8_t i = 0; i < loops; i++) {
+							uint64_t valueDouble = read64(buffer);
+							if (passed) writeValue(valueDouble, (uint64_t)&overwriteRefreshRate);
+							address += 8;
+						}
+						break;						
 					default:
 						return 3;
 				}
