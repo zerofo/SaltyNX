@@ -82,6 +82,13 @@ bool SetDisplayRefreshRate(uint32_t refreshRate) {
 		return false;
 	if (refreshRate > 75 || refreshRate < 35 || refreshRate % 5 != 0)
 		return false;
+	ApmPerformanceMode performanceMode = ApmPerformanceMode_Invalid;
+	apmInitialize();
+	apmGetPerformanceMode(&performanceMode);
+	apmExit();
+	if (performanceMode != 0) {
+		return false;
+	}
 	struct PLLD_BASE temp = {0};
 	memcpy(&temp, (void*)(clkVirtAddr + 0xD0), 4);
 	switch(refreshRate) {
@@ -166,6 +173,14 @@ bool SetDisplayRefreshRate(uint32_t refreshRate) {
 bool GetDisplayRefreshRate(uint32_t* refreshRate) {
 	if (!clkVirtAddr)
 		return false;
+	ApmPerformanceMode performanceMode = ApmPerformanceMode_Invalid;
+	apmInitialize();
+	apmGetPerformanceMode(&performanceMode);
+	apmExit();
+	if (performanceMode != 0) {
+		*refreshRate = 60;
+		return true;
+	}
 	struct PLLD_BASE temp = {0};
 	uint32_t value = *(uint32_t*)(clkVirtAddr + 0xD0);
 	memcpy(&temp, &value, 4);
