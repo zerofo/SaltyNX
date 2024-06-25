@@ -799,7 +799,7 @@ Result handleServiceCmd(int cmd)
 			u64 reserved;
 		} *resp = r.Raw;
 
-		displaySync = (bool)(resp -> value);
+		if (!isOLED) displaySync = (bool)(resp -> value);
 		if (!isOLED && displaySync) {
 			FILE* file = fopen("sdmc:/SaltySD/flags/displaysync.flag", "wb");
 			fclose(file);
@@ -811,6 +811,7 @@ Result handleServiceCmd(int cmd)
 		}
 		else {
 			remove("sdmc:/SaltySD/flags/displaysync.flag");
+			SaltySD_printf("SaltySD: cmd 12 handler -> %d\n", displaySync);
 		}
 
 		ret = 0;
