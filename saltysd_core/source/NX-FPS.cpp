@@ -287,6 +287,10 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
 		}
+		if (((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))() == true && *(Shared.displaySync) != 0) {
+			*(Shared.displaySync) = 0;
+			FPSlock = 0;
+		}
 	}
 
 	*(Shared.FPSavg) = Stats.FPSavg;
@@ -396,8 +400,8 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 			*(Shared.patchApplied) = 1;
 		}
 		if (((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))() == true && *(Shared.displaySync) != 0) {
-			*(Shared.displaySync) = 60;
-			FPSlock = 60;
+			*(Shared.displaySync) = 0;
+			FPSlock = 0;
 		}
 	}
 
@@ -525,8 +529,8 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 			*(Shared.patchApplied) = 1;
 		}
 		if (((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))() == true && *(Shared.displaySync) != 0) {
-			*(Shared.displaySync) = 60;
-			FPSlock = 60;
+			*(Shared.displaySync) = 0;
+			FPSlock = 0;
 		}
 	}
 	
@@ -743,6 +747,10 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		if (changeFPS && !configRC && FPSlock) {
 			LOCK::applyPatch(configBuffer, configSize, FPSlock, *(Shared.displaySync));
 			*(Shared.patchApplied) = 1;
+		}
+		if (((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))() == true && *(Shared.displaySync) != 0) {
+			*(Shared.displaySync) = 0;
+			FPSlock = 0;
 		}
 	}
 
