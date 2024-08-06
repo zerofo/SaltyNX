@@ -891,7 +891,7 @@ void* nvnCommandBufferSetViewports(nvnCommandBuffer* cmdBuf, int start, int coun
 			uint16_t width = (uint16_t)(viewports[i].width);
 			uint16_t height = (uint16_t)(viewports[i].height);
 			int ratio = (width * 10) / height;
-			if (ratio >= 13 && ratio <= 18) {
+			if (ratio >= 12 && ratio <= 18) {
 				//Dynamic Resolution is always the second value passed
 				for (size_t i = 0; i < 8; i++) {
 					if (width == m_resolutionViewportCalls[i].width) {
@@ -914,7 +914,7 @@ void* nvnCommandBufferSetViewports(nvnCommandBuffer* cmdBuf, int start, int coun
 void* nvnCommandBufferSetViewport(nvnCommandBuffer* cmdBuf, int x, int y, int width, int height) {
 	if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
 		int ratio = (width * 10) / height;
-		if (ratio >= 13 && ratio <= 18) {
+		if (ratio >= 12 && ratio <= 18) {
 			//Dynamic Resolution is always the second value passed
 			for (size_t i = 0; i < 8; i++) {
 				if (width == m_resolutionViewportCalls[i].width) {
@@ -952,7 +952,7 @@ void* nvnCommandBufferSetRenderTargets(nvnCommandBuffer* cmdBuf, int numTextures
 			}
 			bool found = false;
 			int ratio = ((depth_width * 10) / (depth_height));
-			if (ratio < 13 || ratio > 18) {
+			if (ratio < 12 || ratio > 18) {
 				found = true;
 			}
 			if (!found) {
