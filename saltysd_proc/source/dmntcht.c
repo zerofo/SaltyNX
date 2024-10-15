@@ -28,7 +28,7 @@ Result dmntchtInitialize(void) {
 
     rc = smGetService(&g_dmntchtSrv, "dmnt:cht");
 
-    if (R_FAILED(rc)) spsmExit();
+    if (R_FAILED(rc)) dmntchtExit();
 
     return rc;
 }
