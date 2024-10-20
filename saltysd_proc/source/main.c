@@ -654,38 +654,24 @@ Result handleServiceCmd(int cmd)
         IpcParsedCommand r = {0};
         ipcParse(&r);
 
-        SaltySD_printf("SaltySD: cmd 8 handler\n");
+        SaltySD_printf("SaltySD: cmd 8 handlerm PID: %ld\n", PIDnow);
 
         u64 BID = 0;
-
+        
         ret = ldrDmntInitialize();
-        LoaderModuleInfo* module_infos = (LoaderModuleInfo*)malloc(sizeof(LoaderModuleInfo) * 16);
-        u32 module_infos_count = 0;
         if (R_SUCCEEDED(ret)) {
-            ret = ldrDmntGetModuleInfos(PIDnow, module_infos, 16, &module_infos_count);
+            LoaderModuleInfo module_infos[2] = {0};
+            u32 module_infos_count = 0;
+            ret = ldrDmntGetModuleInfos(PIDnow, module_infos, 2, &module_infos_count);
             ldrDmntExit();
-        }
-        if (R_SUCCEEDED(ret)) {
-            for (int itr = 0; itr < module_infos_count; itr++) {
-                static u64 comp_address = 0;
-                ret = 0xFFDE;
-                if (!comp_address) {
-                    comp_address = module_infos[itr].base_address;
-                    continue;
-                }
-                if ((module_infos[itr].base_address - comp_address == 0x4000) || (module_infos[itr].base_address - comp_address == 0x6000) || (module_infos[itr].base_address - comp_address == 0x5000)) {
-                    for (int itr2 = 0; itr2 < 8; itr2++) {
-                        *(uint8_t*)((uint64_t)&BID+itr2) = module_infos[itr].build_id[itr2];
-                    }
-                    BID = __builtin_bswap64(BID);
-                    SaltySD_printf("SaltySD: cmd 8 Main found. BID: %016lX\n", BID);
-                    ret = 0;
-                    itr = module_infos_count;
-                }
-                else comp_address = module_infos[itr].base_address;
+            if (R_SUCCEEDED(ret)) {
+                BID = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
+                SaltySD_printf("SaltySD: cmd 8 Main found. BID: %016lX\n", BID);
+                ret = 0;
             }
+            else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
         }
-        free(module_infos);
+        else SaltySD_printf("SaltySD: cmd 8 ldrDmntInitialize failed! RC: 0x%X\n", ret);
 
         struct {
             u64 magic;
@@ -697,7 +683,9 @@ Result handleServiceCmd(int cmd)
         if (!ret) {
             raw->result = BID;
         }
-        else raw->result = 0;
+        else {
+            raw->result = 0;
+        }
 
         return 0;
     }
