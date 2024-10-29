@@ -12,10 +12,10 @@ void __nx_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
 		switch (dyn->d_tag)
 		{
 			case DT_REL:
-				rela = (const Elf32_Rel*)(base + dyn->d_un.d_ptr);
+				rel = (const Elf32_Rel*)(base + dyn->d_un.d_ptr);
 				break;
 			case DT_RELSZ:
-				relasz = dyn->d_un.d_val / sizeof(Elf32_Rel);
+				relsz = dyn->d_un.d_val / sizeof(Elf32_Rel);
 				break;
 		}
 	}
