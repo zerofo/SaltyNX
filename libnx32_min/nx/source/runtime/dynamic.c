@@ -25,11 +25,11 @@ void __nx_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
 
 	for (; relsz--; rel++)
 	{
-		switch (ELF32_R_TYPE(rela->r_info))
+		switch (ELF32_R_TYPE(rel->r_info))
 		{
 			case R_ARM_RELATIVE:
 			{
-				u32* ptr = (u32*)(base + rela->r_offset);
+				u32* ptr = (u32*)(base + rel->r_offset);
 				*ptr += base;
 				break;
 			}
