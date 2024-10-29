@@ -86,8 +86,8 @@ typedef enum {
 
 /// Memory information structure.
 typedef struct {
-    u64 addr;            ///< Base address.
-    u64 size;            ///< Size.
+    u32 addr;            ///< Base address.
+    u32 size;            ///< Size.
     u32 type;            ///< Memory type (see lower 8 bits of \ref MemoryState).
     u32 attr;            ///< Memory attributes (see \ref MemoryAttribute).
     u32 perm;            ///< Memory permissions (see \ref Permission).
