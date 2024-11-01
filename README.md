@@ -7,7 +7,7 @@ Created by: https://github.com/shinyquagsire23
 This fork includes many QoL improvements and beside plugins support also supports patches. 
 
 Since 0.7.0 version NX-FPS and ReverseNX-RT are an intergral part of SaltyNX Core.<br>
-Since 1.0.0 32-bit games are supported (plugins are not supported for them).<br>
+Since 1.0.0 32-bit games are supported (external plugins are not supported for them).<br>
 To use ReverseNX-RT download newest overlay from [HERE](https://github.com/masagrator/ReverseNX-RT/releases)
 
 ![GitHub all releases](https://img.shields.io/github/downloads/masagrator/SaltyNX/total?style=for-the-badge)
