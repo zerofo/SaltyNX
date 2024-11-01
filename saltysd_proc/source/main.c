@@ -190,7 +190,7 @@ bool isModInstalled() {
     return flag;
 }
 
-void hijack_bootstrap(Handle* debug, u64 pid, u64 tid)
+bool hijack_bootstrap(Handle* debug, u64 pid, u64 tid, bool isA64)
 {
     ThreadContext context;
     Result ret;
@@ -203,27 +203,30 @@ void hijack_bootstrap(Handle* debug, u64 pid, u64 tid)
         SaltySD_printf("SaltySD: svcGetDebugThreadContext returned %x, aborting...\n", ret);
         
         svcCloseHandle(*debug);
-        return;
+        return false;
     }
     
     // Load in the ELF
     //svcReadDebugProcessMemory(backup, debug, context.pc.x, 0x1000);
-    FILE* file = fopen("sdmc:/SaltySD/saltysd_bootstrap.elf", "rb");
-    if (!file) {
-        SaltySD_printf("SaltySD: SaltySD/saltysd_bootstrap.elf not found, aborting...\n", ret);
-        svcCloseHandle(*debug);
-        return;
-    }
-    fseek(file, 0, 2);
-    size_t saltysd_bootstrap_elf_size = ftell(file);
-    fseek(file, 0, 0);
-    u8* elf = malloc(saltysd_bootstrap_elf_size);
-    fread(elf, saltysd_bootstrap_elf_size, 1, file);
-    fclose(file);
-    
     uint64_t new_start;
-    load_elf_debug(*debug, &new_start, elf, saltysd_bootstrap_elf_size);
-    free(elf);
+    if (isA64) {
+        FILE* file = 0;
+        file = fopen("sdmc:/SaltySD/saltysd_bootstrap.elf", "rb");
+        if (!file) {
+            SaltySD_printf("SaltySD: SaltySD/saltysd_bootstrap.elf not found, aborting...\n", ret);
+            svcCloseHandle(*debug);
+            return false;
+        }
+        fseek(file, 0, 2);
+        size_t saltysd_bootstrap_elf_size = ftell(file);
+        fseek(file, 0, 0);
+        u8* elf = malloc(saltysd_bootstrap_elf_size);
+        fread(elf, saltysd_bootstrap_elf_size, 1, file);
+        fclose(file);
+        load_elf_debug(*debug, &new_start, elf, saltysd_bootstrap_elf_size);
+        free(elf);
+    }
+    else load_elf32_debug(*debug, &new_start);
 
     // Set new PC
     context.pc.x = new_start;
@@ -234,6 +237,8 @@ void hijack_bootstrap(Handle* debug, u64 pid, u64 tid)
     }
      
     svcCloseHandle(*debug);
+    if (ret) return false;
+    else return true;
 }
 
 void hijack_pid(u64 pid)
@@ -278,6 +283,7 @@ void hijack_pid(u64 pid)
     char titleidnum[20];
     char titleidnumX[20];
     char titleidnumR[20];
+    bool isA64 = true;
 
     while (1)
     {
@@ -319,12 +325,6 @@ void hijack_pid(u64 pid)
                 memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
                 shmemUnmap(&_sharedMemory);
             }
-            if (!eventinfo.isA64)
-            {
-                SaltySD_printf("SaltySD: ARM32 applications plugins are not supported, aborting bootstrap...\n");
-
-                goto abort_bootstrap;
-            }
             char* hbloader = "hbloader";
             if (strcasecmp(eventinfo.name, hbloader) == 0)
             {
@@ -365,6 +365,7 @@ void hijack_pid(u64 pid)
             SaltySD_printf("		 isA64 %01x addrSpace %01x enableDebug %01x\n", eventinfo.isA64, eventinfo.addrSpace, eventinfo.enableDebug);
             SaltySD_printf("		 enableAslr %01x useSysMemBlocks %01x poolPartition %01x\n", eventinfo.enableAslr, eventinfo.useSysMemBlocks, eventinfo.poolPartition);
             SaltySD_printf("		 exception %016lx\n", eventinfo.userExceptionContextAddr);
+            isA64 = eventinfo.isA64;
         }
         else
         {
@@ -386,8 +387,13 @@ void hijack_pid(u64 pid)
     while (!threads);
     renameCheatsFolder();
     
-    hijack_bootstrap(&debug, pid, tids[0]);
-    lastAppPID = pid;
+    if (hijack_bootstrap(&debug, pid, tids[0], isA64)) {
+        lastAppPID = pid;
+    }
+    else {
+        already_hijacking = false;
+        disable = 0;
+    }
     
     free(tids);
 
@@ -441,6 +447,8 @@ Result handleServiceCmd(int cmd)
         char* path = malloc(96);
         uint8_t* elf_data = NULL;
         u32 elf_size = 0;
+        bool arm32 = false;
+        if (!strncmp(name, "saltysd_core32.elf", 18)) arm32 = true;
 
         snprintf(path, 96, "sdmc:/SaltySD/plugins/%s", name);
         FILE* f = fopen(path, "rb");
@@ -471,8 +479,12 @@ Result handleServiceCmd(int cmd)
         free(path);
         
         u64 new_start = 0, new_size = 0;
-        if (elf_data && elf_size)
-            ret = load_elf_proc(proc, r.Pid, heap, &new_start, &new_size, elf_data, elf_size);
+        if (elf_data && elf_size) {
+            if (!arm32)
+                ret = load_elf_proc(proc, r.Pid, heap, &new_start, &new_size, elf_data, elf_size);
+            else ret = load_elf32_proc(proc, r.Pid, (u32)heap, (u32*)&new_start, (u32*)&new_size, elf_data, elf_size);
+            if (ret) SaltySD_printf("Load_elf arm32: %d, ret: 0x%x\n", arm32, ret);
+        }
         else
             ret = MAKERESULT(MODULE_SALTYSD, 1);
 
@@ -539,8 +551,6 @@ Result handleServiceCmd(int cmd)
         to = resp->to;
         from = resp->from;
         size = resp->size;
-
-        SaltySD_printf("SaltySD: cmd 3 handler, memcpy(%llx, %llx, %llx)\n", to, from, size);
         
         Handle debug;
         ret = svcDebugActiveProcess(&debug, r.Pid);
@@ -569,17 +579,20 @@ Result handleServiceCmd(int cmd)
         raw->magic = SFCO_MAGIC;
         raw->result = ret;
 
+        SaltySD_printf("SaltySD: cmd 3 handler, memcpy(%llx, %llx, %llx)\n", to, from, size);
+
         return 0;
     }
     else if (cmd == 4) // GetSDCard
     {		
-        SaltySD_printf("SaltySD: cmd 4 handler\n");
-
         ipcSendHandleCopy(&c, sdcard);
+
+        SaltySD_printf("SaltySD: cmd 4 handler\n"); 
     }
     else if (cmd == 5) // Log
     {
         SaltySD_printf("SaltySD: cmd 5 handler\n");
+
         IpcParsedCommand r = {0};
         ipcParse(&r);
 
@@ -818,7 +831,7 @@ Result handleServiceCmd(int cmd)
 void serviceThread(void* buf)
 {
     Result ret;
-    //SaltySD_printf("SaltySD: accepting service calls\n");
+    SaltySD_printf("SaltySD: accepting service calls\n");
     should_terminate = false;
 
     while (1)
@@ -827,11 +840,11 @@ void serviceThread(void* buf)
         ret = svcAcceptSession(&session, saltyport);
         if (ret && ret != 0xf201)
         {
-            //SaltySD_printf("SaltySD: svcAcceptSession returned %x\n", ret);
+            SaltySD_printf("SaltySD: svcAcceptSession returned %x\n", ret);
         }
         else if (!ret)
         {
-            //SaltySD_printf("SaltySD: session %x being handled\n", session);
+            SaltySD_printf("SaltySD: session %x being handled\n", session);
 
             int handle_index;
             Handle replySession = 0;
@@ -841,7 +854,6 @@ void serviceThread(void* buf)
                 
                 if (should_terminate) break;
                 
-                //SaltySD_printf("SaltySD: IPC reply ret %x, index %x, sess %x\n", ret, handle_index, session);
                 if (ret) break;
                 
                 IpcParsedCommand r;
@@ -853,7 +865,9 @@ void serviceThread(void* buf)
                     u64 reserved[2];
                 } *resp = r.Raw;
 
-                handleServiceCmd(resp->command);
+                u64 command = resp->command;
+
+                handleServiceCmd(command);
                 
                 if (should_terminate) break;
 
@@ -870,7 +884,7 @@ void serviceThread(void* buf)
         svcSleepThread(1000*1000*100);
     }
     
-    //SaltySD_printf("SaltySD: done accepting service calls\n");
+    SaltySD_printf("SaltySD: done accepting service calls\n");
 }
 
 Result fsp_init(Service fsp)
