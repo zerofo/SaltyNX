@@ -75,6 +75,7 @@ Remember to restart Switch
 | Moero Chronicle Hyper | plugins | 32-bit game, not supported |
 | Moero Crystal H | plugins | 32-bit game, not supported |
 | Monster Hunter Generations Ultimate | plugins | 32-bit game, not supported |
+| Monster Hunter XX Nintendo Switch Ver. | plugins | 32-bit game, not supported |
 | New Super Mario Bros. U Deluxe | plugins | 32-bit game, not supported |
 | Ni no Kuni: Wrath of the White Witch | plugins | 32-bit game, not supported |
 | Olympic Games Tokyo 2020 – The Official Video Game™ | plugins | Heap related |
