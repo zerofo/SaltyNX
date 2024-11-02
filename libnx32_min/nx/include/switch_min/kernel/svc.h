@@ -834,6 +834,7 @@ Result svcCreateInterruptEvent(Handle* handle, u32 irqNum, u32 flag);
  * @note Syscall number 0x54.
  * @warning This is a privileged syscall. Use \ref envIsSyscallHinted to check if it is available.
  */
+
 Result svcQueryPhysicalAddress(u32 out[3], uintptr_t virtaddr);
 
 /**
