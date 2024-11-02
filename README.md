@@ -15,7 +15,7 @@ To use ReverseNX-RT download newest overlay from [HERE](https://github.com/masag
 
 Patches pattern:
 - filename is symbol of function with filetype `.asm64` for 64-bit games, `.asm32` for 32-bit games,
-- inside file write with hex editor instructions that you want to overwrite for this function,
+- inside file write with hex editor instructions that you want to put into this function,
 - put this file either to `SaltySD/patches` to make it work for every game, or to `SaltySD/patches/*titleid*` to make it work for specific game.
 
 For additional functions you need SaltyNX-Tool
