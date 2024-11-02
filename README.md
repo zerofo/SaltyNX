@@ -90,6 +90,9 @@ Remember to restart Switch
 | Witcher 3 GOTY (version 3.2) | all | heap related |
 | World of Goo | plugins | 32-bit game, not supported |
 | YouTube | plugins | Unknown |
+| 超次次元ゲイム ネプテューヌRe;Birth1 | plugins | 32-bit game, not supported |
+| 超次次元ゲイム ネプテューヌRe;Birth2 SISTERS GENERATION | plugins | 32-bit game, not supported |
+| 神次次元ゲイム ネプテューヌRe;Birth3 V CENTURY | plugins | 32-bit game, not supported |
 
 Titles in exceptions.txt are treated as part of Blacklist, you can find it in root of repo. SaltyNX reads it from SaltySD folder. `X` at the beginning of titleid means that this game will not load any patches and plugins. `R` at the beginning of titleid means that this game will not load any patches and plugins if romfs mod for this game is installed.
 
