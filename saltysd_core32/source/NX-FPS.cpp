@@ -273,6 +273,7 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 		}
 		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
+			svcSleepThread(10000);
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
@@ -387,6 +388,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 		}
 		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
+			svcSleepThread(10000);
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
@@ -544,6 +546,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 		}
 		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
+			svcSleepThread(10000);
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
@@ -772,6 +775,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 		}
 		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
+			svcSleepThread(10000);
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
