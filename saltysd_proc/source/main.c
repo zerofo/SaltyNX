@@ -60,6 +60,7 @@ void __appExit(void)
 
 u64 TIDnow;
 u64 PIDnow;
+u64 BIDnow;
 
 struct PLLD_BASE {
     unsigned int PLLD_DIVM: 8;
@@ -389,6 +390,21 @@ void hijack_pid(u64 pid)
     
     if (hijack_bootstrap(&debug, pid, tids[0], isA64)) {
         lastAppPID = pid;
+        
+        ret = ldrDmntInitialize();
+        if (R_SUCCEEDED(ret)) {
+            LoaderModuleInfo module_infos[2] = {0};
+            u32 module_infos_count = 0;
+            ret = ldrDmntGetModuleInfos(pid, module_infos, 2, &module_infos_count);
+            ldrDmntExit();
+            if (R_SUCCEEDED(ret)) {
+                BIDnow = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
+                SaltySD_printf("SaltySD: BID: %016lX\n", BIDnow);
+                ret = 0;
+            }
+            else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
+        }
+        else SaltySD_printf("SaltySD: cmd 8 ldrDmntInitialize failed! RC: 0x%X\n", ret);
     }
     else {
         already_hijacking = false;
@@ -676,24 +692,7 @@ Result handleServiceCmd(int cmd)
         IpcParsedCommand r = {0};
         ipcParse(&r);
 
-        SaltySD_printf("SaltySD: cmd 8 handlerm PID: %ld\n", PIDnow);
-
-        u64 BID = 0;
-        
-        ret = ldrDmntInitialize();
-        if (R_SUCCEEDED(ret)) {
-            LoaderModuleInfo module_infos[2] = {0};
-            u32 module_infos_count = 0;
-            ret = ldrDmntGetModuleInfos(PIDnow, module_infos, 2, &module_infos_count);
-            ldrDmntExit();
-            if (R_SUCCEEDED(ret)) {
-                BID = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
-                SaltySD_printf("SaltySD: cmd 8 Main found. BID: %016lX\n", BID);
-                ret = 0;
-            }
-            else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
-        }
-        else SaltySD_printf("SaltySD: cmd 8 ldrDmntInitialize failed! RC: 0x%X\n", ret);
+        SaltySD_printf("SaltySD: cmd 8 handler PID: %ld\n", PIDnow);
 
         struct {
             u64 magic;
@@ -702,12 +701,7 @@ Result handleServiceCmd(int cmd)
 
         raw = ipcPrepareHeader(&c, sizeof(*raw));
         raw->magic = SFCO_MAGIC;
-        if (!ret) {
-            raw->result = BID;
-        }
-        else {
-            raw->result = 0;
-        }
+        raw->result = BIDnow;
 
         return 0;
     }
