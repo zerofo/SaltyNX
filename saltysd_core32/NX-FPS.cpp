@@ -2,7 +2,6 @@
 #include "saltysd_ipc.h"
 #include "saltysd_dynamic.h"
 #include "saltysd_core.h"
-#include "ltoa.h"
 #include <cstdlib>
 #include <cmath>
 #include "lock.hpp"
@@ -44,14 +43,14 @@ struct NVNViewport {
 };
 
 extern "C" {
-	typedef u64 (*nvnBootstrapLoader_0)(const char * nvnName);
+	typedef u32 (*nvnBootstrapLoader_0)(const char * nvnName);
 	typedef int (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
 	typedef int (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
 	typedef u32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
 	typedef u32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
-	typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
-	typedef u64 (*eglGetProcAddress_0)(const char* eglName);
+	typedef void (*_ZN2nn2os13GetSystemTickEv_0)(u64* output);
+	typedef u32 (*eglGetProcAddress_0)(const char* eglName);
 	typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
 	typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
 	typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
@@ -217,26 +216,7 @@ enum {
 	ZeroSyncType_Semi
 };
 
-inline void createBuildidPath(const uint64_t buildid, char* titleid, char* buffer) {
-	strcpy(buffer, "sdmc:/SaltySD/plugins/FPSLocker/patches/0");
-	strcat(buffer, &titleid[0]);
-	strcat(buffer, "/");
-	ltoa(buildid, &titleid[0], 16);
-	int zero_count = 16 - strlen(&titleid[0]);
-	for (int i = 0; i < zero_count; i++) {
-		strcat(buffer, "0");
-	}
-	strcat(buffer, &titleid[0]);
-	strcat(buffer, ".bin");	
-}
-
-inline void CheckTitleID(char* buffer) {
-    uint64_t titid = 0;
-    svcGetInfo(&titid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
-    ltoa(titid, buffer, 16);
-}
-
-inline uint64_t getMainAddress() {
+inline uint32_t getMainAddress() {
 	MemoryInfo memoryinfo = {0};
 	u32 pageinfo = 0;
 
@@ -244,8 +224,8 @@ inline uint64_t getMainAddress() {
 	for (size_t i = 0; i < 3; i++) {
 		Result rc = svcQueryMemory(&memoryinfo, &pageinfo, base_address);
 		if (R_FAILED(rc)) return 0;
-		if ((memoryinfo.addr == base_address) && (memoryinfo.perm & Perm_X))
-			return base_address;
+		if ((memoryinfo.addr == base_address) && ((memoryinfo.perm & Perm_Rx) == Perm_Rx))
+			return (uint32_t)base_address;
 		base_address = memoryinfo.addr+memoryinfo.size;
 	}
 
@@ -270,7 +250,7 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 	
 	if (!starttick) {
 		*(Shared.API) = 3;
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 	}
 
 	uint32_t FPStimingoverride = 0;
@@ -287,17 +267,20 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 	
 
 	if ((FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) || FPStimingoverride) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		uint64_t tick = 0;
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
+		if ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 			svcSleepThread(10000);
+			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
 
 	uint32_t vulkanResult = ((_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(Address_weaks.nvSwapchainQueuePresentKHR))(VkQueue_T, VkPresentInfoKHR);
-	endtick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&endtick);
 	framedelta = endtick - frameend;
 	frameavg = ((9*frameavg) + framedelta) / 10;
 	Stats.FPSavg = systemtickfrequency / (float)frameavg;
@@ -315,7 +298,6 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 				range--;
 			}
 		}
-
 		if (Stats.FPSavg > LOCK::overwriteRefreshRate) {
 			if (rangeoverride < 200) {
 				rangeoverride++;
@@ -337,7 +319,7 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 	FPStickItr %= 10;
 
 	if (deltatick > systemtickfrequency) {
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 		Stats.FPS = FPS_temp - 1;
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
@@ -383,7 +365,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 	
 	if (!starttick) {
 		*(Shared.API) = 3;
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 	}
 
 	uint32_t FPStimingoverride = 0;
@@ -400,17 +382,20 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 	
 
 	if ((FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) || FPStimingoverride) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		uint64_t tick = 0;
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
+		if ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 			svcSleepThread(10000);
+			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
 
 	uint32_t vulkanResult = ((vkQueuePresentKHR_0)(Address_weaks.vkQueuePresentKHR))(VkQueue, VkPresentInfoKHR);
-	endtick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&endtick);
 	framedelta = endtick - frameend;
 	frameavg = ((9*frameavg) + framedelta) / 10;
 	Stats.FPSavg = systemtickfrequency / (float)frameavg;
@@ -450,7 +435,7 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 	FPStickItr %= 10;
 
 	if (deltatick > systemtickfrequency) {
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 		Stats.FPS = FPS_temp - 1;
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
@@ -538,7 +523,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 
 	if (!starttick) {
 		*(Shared.API) = 2;
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 	}
 
 	uint32_t FPStimingoverride = 0;
@@ -561,19 +546,22 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 			}
 		}
 	}
-	
+
 	if ((FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) || FPStimingoverride) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		uint64_t tick = 0;
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
+		if ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 			svcSleepThread(10000);
+			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
 	
 	int result = ((eglSwapBuffers_0)(Address_weaks.eglSwapBuffers))(EGLDisplay, EGLSurface);
-	endtick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&endtick);
 	framedelta = endtick - frameend;
 	frameavg = ((9*frameavg) + framedelta) / 10;
 	Stats.FPSavg = systemtickfrequency / (float)frameavg;
@@ -612,7 +600,7 @@ int eglSwap (const void* EGLDisplay, const void* EGLSurface) {
 	FPStickItr %= 10;
 
 	if (deltatick > systemtickfrequency) {
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 		Stats.FPS = FPS_temp - 1;
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
@@ -720,7 +708,8 @@ void nvnSetPresentInterval(const NVNWindow* nvnWindow, int mode) {
 }
 
 void* nvnSyncWait0(const void* _this, uint64_t timeout_ns) {
-	uint64_t endFrameTick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	uint64_t endFrameTick = 0;
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&endFrameTick);
 	if (_this == WindowSync && *(Shared.ActiveBuffers) == 2) {
 		if (*(Shared.ZeroSync) == ZeroSyncType_Semi) {
 			u64 FrameTarget = (systemtickfrequency/60) - 8000;
@@ -758,7 +747,7 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 	bool FPSlock_delayed = false;
 
 	if (!starttick) {
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 		*(Shared.FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 	}
 
@@ -796,18 +785,22 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 	}
 
 	if ((FPStiming && !LOCK::blockDelayFPS && (!*(Shared.displaySync) || *(Shared.FPSlocked) < *(Shared.displaySync))) || FPStimingoverride) {
-		if ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		uint64_t tick = 0;
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
+		if ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			FPSlock_delayed = true;
 		}
-		while ((((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))() - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
+		while ((tick - frameend) < (FPStimingoverride ? FPStimingoverride : FPStiming)) {
 			svcSleepThread(-2);
 			svcSleepThread(10000);
+			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 		}
 	}
 	
 	((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, unk3);
+	
 	nvnPresentedTexture = true;
-	endtick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&endtick);
 	framedelta = endtick - frameend;
 
 	Shared.FPSticks[FPStickItr++] = framedelta;
@@ -841,12 +834,11 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 			}
 		}
 	}
-
 	frameend = endtick;
 	FPS_temp++;
 	deltatick = endtick - starttick;
 	if (deltatick > systemtickfrequency) {
-		starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+		((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick);
 		Stats.FPS = FPS_temp - 1;
 		FPS_temp = 0;
 		*(Shared.FPS) = Stats.FPS;
@@ -860,10 +852,11 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 			FPSlock = 0;
 		}
 	}
-
 	*(Shared.FPSavg) = Stats.FPSavg;
+	
+	
 	*(Shared.pluginActive) = true;
-
+	
 	if ((FPSlock != *(Shared.FPSlocked)) || (FPSlock && !FPStiming) || (*(Shared.FPSlocked) > 30 && *(Shared.FPSmode) > 1)) {
 		changeFPS = true;
 		changedFPS = false;
@@ -897,6 +890,8 @@ void nvnPresentTexture(const void* _this, const NVNWindow* nvnWindow, const void
 			FPSlock = *(Shared.FPSlocked);
 		}
 	}
+
+	
 	
 	return;
 }
@@ -906,7 +901,7 @@ void* nvnAcquireTexture(const NVNWindow* nvnWindow, const void* nvnSync, const v
 		WindowSync = (void*)nvnSync;
 	}
 	void* ret = ((nvnWindowAcquireTexture_0)(Ptrs.nvnWindowAcquireTexture))(nvnWindow, nvnSync, index);
-	startFrameTick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+	((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&startFrameTick);
 	return ret;
 }
 
@@ -1083,7 +1078,7 @@ extern "C" {
 		SaltySDCore_printf("NX-FPS: alive\n");
 		LOCK::mappings.main_start = getMainAddress();
 		SaltySDCore_printf("NX-FPS: found main at: 0x%lX\n", LOCK::mappings.main_start);
-		Result ret = SaltySD_CheckIfSharedMemoryAvailable(&SharedMemoryOffset, 60 + sizeof(m_resolutionRenderCalls) + sizeof(m_resolutionViewportCalls) + 1);
+		Result ret = SaltySD_CheckIfSharedMemoryAvailable(&SharedMemoryOffset, 60 + sizeof(m_resolutionRenderCalls) + sizeof(m_resolutionViewportCalls));
 		SaltySDCore_printf("NX-FPS: ret: 0x%X\n", ret);
 		if (!ret) {
 			SaltySDCore_printf("NX-FPS: MemoryOffset: %d\n", SharedMemoryOffset);
@@ -1095,10 +1090,10 @@ extern "C" {
 			Shared.FPSavg = (float*)(base + 5);
 			Shared.pluginActive = (bool*)(base + 9);
 			
-			Address.nvnGetProcAddress = (uint64_t)&nvnGetProcAddress;
-			Address.nvnQueuePresentTexture = (uint64_t)&nvnPresentTexture;
-			Address.nvnWindowAcquireTexture = (uint64_t)&nvnAcquireTexture;
-			Address.nvnWindowInitialize = (uint64_t)&nvnWindowInitialize;
+			Address.nvnGetProcAddress = (uintptr_t)&nvnGetProcAddress;
+			Address.nvnQueuePresentTexture = (uintptr_t)&nvnPresentTexture;
+			Address.nvnWindowAcquireTexture = (uintptr_t)&nvnAcquireTexture;
+			Address.nvnWindowInitialize = (uintptr_t)&nvnWindowInitialize;
 			Address_weaks.nvnBootstrapLoader = SaltySDCore_FindSymbolBuiltin("nvnBootstrapLoader");
 			Address_weaks.eglSwapBuffers = SaltySDCore_FindSymbolBuiltin("eglSwapBuffers");
 			Address_weaks.eglSwapInterval = SaltySDCore_FindSymbolBuiltin("eglSwapInterval");
@@ -1130,23 +1125,21 @@ extern "C" {
 			Shared.renderCalls = (resolutionCalls*)(base + 60);
 			Shared.viewportCalls = (resolutionCalls*)(base + 60 + sizeof(m_resolutionRenderCalls));
 			Shared.forceOriginalRefreshRate = (bool*)(base + 60 + sizeof(m_resolutionRenderCalls) + sizeof(m_resolutionViewportCalls));
-			Address.nvnWindowSetPresentInterval = (uint64_t)&nvnSetPresentInterval;
-			Address.nvnSyncWait = (uint64_t)&nvnSyncWait0;
-			Address.nvnWindowBuilderSetTextures = (uint64_t)&nvnWindowBuilderSetTextures;
-			Address.nvnWindowSetNumActiveTextures = (uint64_t)&nvnWindowSetNumActiveTextures;
-			Address.eglGetProcAddress = (uint64_t)&eglGetProc;
-			Address.eglSwapBuffers = (uint64_t)&eglSwap;
-			Address.eglSwapInterval = (uint64_t)&eglInterval;
-			Address.nvnCommandBufferSetRenderTargets = (uint64_t)&nvnCommandBufferSetRenderTargets;
-			Address.nvnCommandBufferSetViewport = (uint64_t)&nvnCommandBufferSetViewport;
-			Address.nvnCommandBufferSetViewports = (uint64_t)&nvnCommandBufferSetViewports;
+			Address.nvnWindowSetPresentInterval = (uintptr_t)&nvnSetPresentInterval;
+			Address.nvnSyncWait = (uintptr_t)&nvnSyncWait0;
+			Address.nvnWindowBuilderSetTextures = (uintptr_t)&nvnWindowBuilderSetTextures;
+			Address.nvnWindowSetNumActiveTextures = (uintptr_t)&nvnWindowSetNumActiveTextures;
+			Address.eglGetProcAddress = (uintptr_t)&eglGetProc;
+			Address.eglSwapBuffers = (uintptr_t)&eglSwap;
+			Address.eglSwapInterval = (uintptr_t)&eglInterval;
+			Address.nvnCommandBufferSetRenderTargets = (uintptr_t)&nvnCommandBufferSetRenderTargets;
+			Address.nvnCommandBufferSetViewport = (uintptr_t)&nvnCommandBufferSetViewport;
+			Address.nvnCommandBufferSetViewports = (uintptr_t)&nvnCommandBufferSetViewports;
 
-			char titleid[17];
-			CheckTitleID(&titleid[0]);
+			uint64_t titleid = 0;
+			svcGetInfo(&titleid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
 			char path[128];
-			strcpy(&path[0], "sdmc:/SaltySD/plugins/FPSLocker/0");
-			strcat(&path[0], &titleid[0]);
-			strcat(&path[0], ".dat");
+			sprintf(path, "sdmc:/SaltySD/plugins/FPSLocker/%016llX.dat", titleid);
 			FILE* file_dat = SaltySDCore_fopen(path, "rb");
 			if (file_dat) {
 				uint8_t temp = 0;
@@ -1172,8 +1165,8 @@ extern "C" {
 				SaltySDCore_printf("NX-FPS: getBID failed! Err: 0x%x\n", ret);
 			}
 			else {
-				SaltySDCore_printf("NX-FPS: BID: %016lX\n", buildid);
-				createBuildidPath(buildid, &titleid[0], &path[0]);
+				SaltySDCore_printf("NX-FPS: BID: %016llX\n", buildid);
+				sprintf(path, "sdmc:/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
 				FILE* patch_file = SaltySDCore_fopen(path, "rb");
 				if (patch_file) {
 					SaltySDCore_fclose(patch_file);
@@ -1183,8 +1176,13 @@ extern "C" {
 						*(Shared.patchApplied) = 2;
 					}
 					SaltySDCore_printf("NX-FPS: FPSLocker: readConfig rc: 0x%x\n", configRC);
-					svcGetInfo(&LOCK::mappings.alias_start, InfoType_AliasRegionAddress, CUR_PROCESS_HANDLE, 0);
-					svcGetInfo(&LOCK::mappings.heap_start, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0);
+					uint64_t alias = 0;
+					uint64_t heap = 0;
+
+					svcGetInfo(&alias, InfoType_AliasRegionAddress, CUR_PROCESS_HANDLE, 0);
+					svcGetInfo(&heap, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0);
+					LOCK::mappings.alias_start = (uint32_t)alias;
+					LOCK::mappings.heap_start = (uint32_t)heap;
 				}
 				else SaltySDCore_printf("NX-FPS: FPSLocker: File not found: %s\n", path);
 			}
