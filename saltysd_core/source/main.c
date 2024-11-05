@@ -263,10 +263,8 @@ Result svcGetInfoIntercept (u64 *out, u64 id0, Handle handle, u64 id1)
 
 void SaltySDCore_PatchSVCs()
 {
-	Result ret;
 	static u8 orig_1[0x8] = {0xE0, 0x0F, 0x1F, 0xF8, 0x21, 0x00, 0x00, 0xD4}; //STR [sp, #-0x10]!; SVC #0x1
 	static u8 orig_2[0x8] = {0xE0, 0x0F, 0x1F, 0xF8, 0x21, 0x05, 0x00, 0xD4}; //STR [sp, #-0x10]!; SVC #0x29
-	const u8 nop[0x4] = {0x1F, 0x20, 0x03, 0xD5}; // NOP
 	static u8 patch[0x10] = {0x44, 0x00, 0x00, 0x58, 0x80, 0x00, 0x1F, 0xD6, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0}; // LDR X4 #8; BR X4; ADRP X15, #0x1FE03000; ADRP X15, #0x1FE03000
 	u64 dst_1 = SaltySDCore_findCode(orig_1, 8);
 	u64 dst_2 = SaltySDCore_findCode(orig_2, 8);
@@ -278,42 +276,10 @@ void SaltySDCore_PatchSVCs()
 	}
 
 	*(u64*)&patch[8] = (u64)svcSetHeapSizeIntercept;
-	if (dst_1 & 4)
-	{
-		ret = SaltySD_Memcpy(dst_1, (u64)nop, 0x4);
-		if (ret)
-		{
-			debug_log("svcSetHeapSize memcpy failed!\n");
-		}
-		else
-		{
-			ret = SaltySD_Memcpy(dst_1+4, (u64)patch, 0x10);
-		}
-	}
-	else
-	{
-		ret = SaltySD_Memcpy(dst_1, (u64)patch, 0x10);
-	}
-	if (ret) debug_log("svcSetHeapSize memcpy failed!\n");
+	SaltySD_Memcpy(dst_1, (u64)patch, 0x10);
 	
 	*(u64*)&patch[8] = (u64)svcGetInfoIntercept;	
-	if (dst_2 & 4)	
-	{	
-		ret = SaltySD_Memcpy(dst_2, (u64)nop, 0x4);	
-		if (ret)	
-		{	
-			debug_log("svcSetHeapSize memcpy failed!\n");	
-		}	
-		else	
-		{	
-			ret = SaltySD_Memcpy(dst_2+4, (u64)patch, 0x10);	
-		}	
-	}	
-	else	
-	{	
-		ret = SaltySD_Memcpy(dst_2, (u64)patch, 0x10);	
-	}	
-	if (ret) debug_log("svcSetHeapSize memcpy failed!\n");
+	SaltySD_Memcpy(dst_2, (u64)patch, 0x10);
 }
 
 void** SaltySDCore_LoadPluginsInDir(char* path, void** entries, size_t* num_elfs)
