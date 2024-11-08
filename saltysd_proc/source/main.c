@@ -420,6 +420,7 @@ void hijack_pid(u64 pid)
         already_hijacking = false;
         disable = 0;
     }
+	renameCheatsFolder();
 
     return;
 
