@@ -393,6 +393,8 @@ void hijack_pid(u64 pid)
     } while (!threads);
 
     uint64_t passed_time_in_ticks = svcGetSystemTick() - tick_start;
+    
+    renameCheatsFolder();
 
     if (passed_time_in_ticks > 19200000 * 10) {
         SaltySD_printf("SaltySD: Waiting for main thread: %d ms, longer than normal!\n", passed_time_in_ticks / 19200);
@@ -420,7 +422,6 @@ void hijack_pid(u64 pid)
         already_hijacking = false;
         disable = 0;
     }
-	renameCheatsFolder();
 
     return;
 
