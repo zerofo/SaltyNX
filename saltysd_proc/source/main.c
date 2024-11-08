@@ -259,8 +259,8 @@ bool hijack_bootstrap(Handle* debug, u64 pid, u64 tid, bool isA64)
 
 void hijack_pid(u64 pid)
 {
-    Result ret;
-    u32 threads;
+    Result ret = -1;
+    u32 threads = 0;
     Handle debug;
     
     FILE* disabled = fopen("sdmc:/SaltySD/flags/disable.flag", "r");
@@ -269,7 +269,7 @@ void hijack_pid(u64 pid)
     if (disabled == NULL) {
         disable = 0;
     }
-    fclose(disabled);
+    else fclose(disabled);
     
     if (already_hijacking)
     {
@@ -280,44 +280,32 @@ void hijack_pid(u64 pid)
     already_hijacking = true;
     svcDebugActiveProcess(&debug, pid);
 
-    u64* tids = malloc(0x200 * sizeof(u64));
-
-    do
-    {
-        ret = svcGetThreadList(&threads, tids, 0x200, debug);
-        svcSleepThread(-1);
-    }
-    while (!tids);
-    
-    ThreadContext context;
-    ret = svcGetDebugThreadContext(&context, debug, tids[0], RegisterGroup_All);
-
-    SaltySD_printf("SaltySD: new max %lx, %x %016lx\n", pid, threads, context.pc.x);
-
-    char exceptions[20];
-    char line[20];
-    char titleidnum[20];
-    char titleidnumX[20];
-    char titleidnumR[20];
     bool isA64 = true;
 
     while (1)
     {
         ret = svcGetDebugEventInfo(&eventinfo, debug);
 
-        if (check == false) {
+        switch(ret) {
+            case 0:
+                break;
+            case 0xE401:
+                SaltySD_printf("SaltySD: PID %d is not allowing debugging, aborting...\n", pid);
+                goto abort_bootstrap;
+            case 0x8C01:
+                SaltySD_printf("SaltySD: PID %d svcGetDebugEventInfo: end of events...\n", pid);
+                break;
+            default:
+                SaltySD_printf("SaltySD: PID %d svcGetDebugEventInfo returned %x, breaking...\n", pid, ret);
+                break;
+        }
+        if (ret)
+            break;
+
+        if (!check) {
             TIDnow = eventinfo.tid;
             exception = 0;
             renameCheatsFolder();
-        }
-
-        if (ret)
-        {
-            SaltySD_printf("SaltySD: svcGetDebugEventInfo returned %x, breaking\n", ret);
-            // Invalid Handle
-            if (ret == 0xe401)
-                goto abort_bootstrap;
-            break;
         }
 
         if (eventinfo.type == DebugEvent_AttachProcess)
@@ -329,12 +317,12 @@ void hijack_pid(u64 pid)
 
             if (eventinfo.tid <= 0x010000000000FFFF)
             {
-                SaltySD_printf("SaltySD: TID %016lx is a system application, aborting bootstrap...\n", eventinfo.tid);
+                SaltySD_printf("SaltySD: %s TID %016lx is a system application, aborting bootstrap...\n", eventinfo.name, eventinfo.tid);
                 goto abort_bootstrap;
             }
             if (eventinfo.tid > 0x01FFFFFFFFFFFFFF || (eventinfo.tid & 0x1F00) != 0)
             {
-                SaltySD_printf("SaltySD: TID %016lx is a homebrew application, aborting bootstrap...\n", eventinfo.tid);
+                SaltySD_printf("SaltySD: %s TID %016lx is a homebrew application, aborting bootstrap...\n", eventinfo.name, eventinfo.tid);
                 goto abort_bootstrap;
             }
             if (shmemGetAddr(&_sharedMemory)) {
@@ -349,27 +337,30 @@ void hijack_pid(u64 pid)
             
             FILE* except = fopen("sdmc:/SaltySD/exceptions.txt", "r");
             if (except) {
-                snprintf(titleidnum, sizeof titleidnum, "%016lx", eventinfo.tid);
+                char exceptions[20];
+                char titleidnumX[20];
+
                 snprintf(titleidnumX, sizeof titleidnumX, "X%016lx", eventinfo.tid);
-                snprintf(titleidnumR, sizeof titleidnumR, "R%016lx", eventinfo.tid);
-                while (fgets(line, sizeof(line), except)) {
-                    snprintf(exceptions, sizeof exceptions, "%s", line); 
+                while (fgets(exceptions, sizeof(exceptions), except)) {
                     if (!strncasecmp(exceptions, titleidnumX, 17)) {
-                        SaltySD_printf("SaltySD: TID %016lx is forced in exceptions.txt, aborting bootstrap...\n", eventinfo.tid);
+                        SaltySD_printf("SaltySD: %s TID %016lx is forced in exceptions.txt, aborting bootstrap...\n", eventinfo.name, eventinfo.tid);
                         fclose(except);
                         goto abort_bootstrap;
                     }
-                    else if (!strncasecmp(exceptions, titleidnumR, 17)) {
-                        if (isModInstalled()) {
-                            SaltySD_printf("SaltySD: TID %016lx is in exceptions.txt as romfs excluded, aborting bootstrap...\n", eventinfo.tid);
-                            fclose(except);
-                            goto abort_bootstrap;
+                    else {
+                        titleidnumX[0] = 'R';
+                        if (!strncasecmp(exceptions, titleidnumX, 17)) {
+                            if (isModInstalled()) {
+                                SaltySD_printf("SaltySD: %s TID %016lx is in exceptions.txt as romfs excluded, aborting bootstrap...\n", eventinfo.name, eventinfo.tid);
+                                fclose(except);
+                                goto abort_bootstrap;
+                            }
+                            else SaltySD_printf("SaltySD: %s TID %016lx is in exceptions.txt as romfs excluded, but no romfs mod was detected...\n", eventinfo.name, eventinfo.tid);
                         }
-                        else SaltySD_printf("SaltySD: TID %016lx is in exceptions.txt as romfs excluded, but no romfs mod was detected...\n", eventinfo.tid);
-                    }
-                    else if (!strncasecmp(exceptions, titleidnum, 16)) {
-                        SaltySD_printf("SaltySD: TID %016lx is in exceptions.txt, aborting loading plugins...\n", eventinfo.tid);
-                        exception = 0x1;
+                        else if (!strncasecmp(exceptions, &titleidnumX[1], 16)) {
+                            SaltySD_printf("SaltySD: %s TID %016lx is in exceptions.txt, aborting loading plugins...\n", eventinfo.name, eventinfo.tid);
+                            exception = 0x1;
+                        }
                     }
                 }
                 fclose(except);
@@ -388,21 +379,26 @@ void hijack_pid(u64 pid)
             continue;
         }
     }
-    // Poll for new threads (svcStartProcess) while stuck in debug
-    
+
+    u64 threadid = 0;
+
     uint64_t tick_start = svcGetSystemTick();
-    do
-    {
-        if (svcGetSystemTick() - tick_start > 19200000 * 10) {
+    do {
+        if (svcGetSystemTick() - tick_start > 19200000 * 30) {
+            SaltySD_printf("SaltySD: Waiting for main thread timeout! Aborting...\n");
             goto abort_bootstrap;
         }
-        ret = svcGetThreadList(&threads, tids, 0x200, debug);
-        svcSleepThread(-1);
+        ret = svcGetThreadList(&threads, &threadid, 1, debug);
+        svcSleepThread(10000);
+    } while (!threads);
+
+    uint64_t passed_time_in_ticks = svcGetSystemTick() - tick_start;
+
+    if (passed_time_in_ticks > 19200000 * 10) {
+        SaltySD_printf("SaltySD: Waiting for main thread: %d ms, longer than normal!\n", passed_time_in_ticks / 19200);
     }
-    while (!threads);
-    renameCheatsFolder();
     
-    if (hijack_bootstrap(&debug, pid, tids[0], isA64)) {
+    if (hijack_bootstrap(&debug, pid, threadid, isA64)) {
         lastAppPID = pid;
         
         ret = ldrDmntInitialize();
@@ -424,15 +420,12 @@ void hijack_pid(u64 pid)
         already_hijacking = false;
         disable = 0;
     }
-    
-    free(tids);
 
     return;
 
 abort_bootstrap:
+    if (check) renameCheatsFolder();
     disable = 0;
-    free(tids);
-    renameCheatsFolder();
                 
     already_hijacking = false;
     svcCloseHandle(debug);
