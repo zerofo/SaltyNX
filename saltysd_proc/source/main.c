@@ -342,6 +342,7 @@ void hijack_pid(u64 pid)
 
                 snprintf(titleidnumX, sizeof titleidnumX, "X%016lx", eventinfo.tid);
                 while (fgets(exceptions, sizeof(exceptions), except)) {
+                    titleidnumX[0] = 'X';
                     if (!strncasecmp(exceptions, titleidnumX, 17)) {
                         SaltySD_printf("SaltySD: %s TID %016lx is forced in exceptions.txt, aborting bootstrap...\n", eventinfo.name, eventinfo.tid);
                         fclose(except);
