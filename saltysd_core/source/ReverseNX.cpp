@@ -41,10 +41,16 @@ struct {
 	uintptr_t TimedWaitAny;	
 } Address_weaks;
 
-bool* def_shared = 0;
-bool* isDocked_shared = 0;
-bool* pluginActive_shared = 0;
-const char* ver = "2.0.0";
+struct Shared {
+	uint32_t MAGIC;
+	bool isDocked;
+	bool def;
+	bool pluginActive;
+} PACKED;
+
+Shared* ReverseNX_RT;
+
+const char* ver = "3.0.0";
 
 ptrdiff_t SharedMemoryOffset2 = -1;
 
@@ -60,9 +66,9 @@ bool TryPopNotificationMessage(int &msg) {
 	static bool compare = false;
 	static bool compare2 = false;
 
-	*pluginActive_shared = true;
+	ReverseNX_RT->pluginActive = true;
 
-	if (*def_shared) {
+	if (ReverseNX_RT->def) {
 		if (!check1) {
 			check1 = true;
 			msg = 0x1f;
@@ -78,13 +84,13 @@ bool TryPopNotificationMessage(int &msg) {
 	
 	check1 = false;
 	check2 = false;
-	if (compare2 != *isDocked_shared) {
-		compare2 = *isDocked_shared;
+	if (compare2 != ReverseNX_RT->isDocked) {
+		compare2 = ReverseNX_RT->isDocked;
 		msg = 0x1f;
 		return true;
 	}
-	if (compare != *isDocked_shared) {
-		compare = *isDocked_shared;
+	if (compare != ReverseNX_RT->isDocked) {
+		compare = ReverseNX_RT->isDocked;
 		msg = 0x1e;
 		return true;
 	}
@@ -103,15 +109,15 @@ int PopNotificationMessage() {
 }
 
 uint32_t GetPerformanceMode() {
-	if (*def_shared) *isDocked_shared = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
+	if (ReverseNX_RT->def) ReverseNX_RT->isDocked = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
 	
-	return *isDocked_shared;
+	return ReverseNX_RT->isDocked;
 }
 
 uint8_t GetOperationMode() {
-	if (*def_shared) *isDocked_shared = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
+	if (ReverseNX_RT->def) ReverseNX_RT->isDocked = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
 	
-	return *isDocked_shared;
+	return ReverseNX_RT->isDocked;
 }
 
 /* 
@@ -133,12 +139,11 @@ uint8_t GetOperationMode() {
 
 */
 void GetDefaultDisplayResolution(int* width, int* height) {
-	if (*def_shared) {
+	if (ReverseNX_RT->def) {
 		((_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(Address_weaks.GetDefaultDisplayResolution))(width, height);
-		if (*width == 1920) *isDocked_shared = true;
-		else *isDocked_shared = false;
+		ReverseNX_RT->isDocked = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
 	}
-	else if (*isDocked_shared) {
+	else if (ReverseNX_RT->isDocked) {
 		*width = 1920;
 		*height = 1080;
 	}
@@ -157,9 +162,9 @@ bool TryWaitSystemEvent(SystemEvent* systemEvent) {
 	static bool check = true;
 	static bool compare = false;
 
-	if (systemEvent != defaultDisplayResolutionChangeEventCopy || *def_shared) {
+	if (systemEvent != defaultDisplayResolutionChangeEventCopy || ReverseNX_RT->def) {
 		bool ret = ((nnosTryWaitSystemEvent)(Address_weaks.TryWaitSystemEvent))(systemEvent);
-		compare = *isDocked_shared;
+		compare = ReverseNX_RT->isDocked;
 		if (systemEvent == defaultDisplayResolutionChangeEventCopy && !check) {
 			check = true;
 			return true;
@@ -168,8 +173,8 @@ bool TryWaitSystemEvent(SystemEvent* systemEvent) {
 	}
 	check = false;
 	if (systemEvent == defaultDisplayResolutionChangeEventCopy) {
-		if (compare != *isDocked_shared) {
-			compare = *isDocked_shared;
+		if (compare != ReverseNX_RT->isDocked) {
+			compare = ReverseNX_RT->isDocked;
 			return true;
 		}
 		return false;
@@ -179,7 +184,7 @@ bool TryWaitSystemEvent(SystemEvent* systemEvent) {
 
 void WaitSystemEvent(SystemEvent* systemEvent) {
 	if (systemEvent == defaultDisplayResolutionChangeEventCopy) {
-		*pluginActive_shared = true;
+		ReverseNX_RT->pluginActive = true;
 		while(true) {
 			bool return_now = TryWaitSystemEvent(systemEvent);
 			if (return_now)
@@ -233,15 +238,11 @@ extern "C" {
 		if (!ret) {
 			SaltySDCore_printf("ReverseNX: SharedMemory MemoryOffset: %d\n", SharedMemoryOffset2);
 
-			uintptr_t base = (uintptr_t)shmemGetAddr(_sharedmemory) + SharedMemoryOffset2;
-			uint32_t* MAGIC = (uint32_t*)base;
-			*MAGIC = 0x5452584E;
-			isDocked_shared = (bool*)(base + 4);
-			def_shared = (bool*)(base + 5);
-			pluginActive_shared = (bool*)(base + 6);
-			*isDocked_shared = false;
-			*def_shared = true;
-			*pluginActive_shared = false;
+			ReverseNX_RT = (Shared*)((uintptr_t)shmemGetAddr(_sharedmemory) + SharedMemoryOffset2);
+			ReverseNX_RT->MAGIC = 0x5452584E;
+			ReverseNX_RT->isDocked = false;
+			ReverseNX_RT->def = true;
+			ReverseNX_RT->pluginActive = false;
 			Address_weaks.GetPerformanceMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe18GetPerformanceModeEv");
 			Address_weaks.GetOperationMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
 			Address_weaks.TryPopNotificationMessage = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe25TryPopNotificationMessageEPj");
