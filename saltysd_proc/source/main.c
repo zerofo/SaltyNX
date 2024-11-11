@@ -976,8 +976,6 @@ int main(int argc, char *argv[])
     Service* ldrDmntSrv = ldrDmntGetServiceSession();
     Service ldrDmntClone;
     memcpy(&ldrDmntClone, ldrDmntSrv, sizeof(Service));
-    ldrDmntClone.object_id = ldrDmntSrv -> object_id;
-    ldrDmntClone.type = ldrDmntSrv -> type;
     ipcCloneSession(ldrDmntSrv -> handle, 1, &ldrDmntClone.handle);
     serviceClose(ldrDmntSrv);
     memcpy(ldrDmntSrv, &ldrDmntClone, sizeof(Service));
