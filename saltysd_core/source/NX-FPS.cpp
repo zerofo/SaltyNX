@@ -362,6 +362,9 @@ uint32_t vulkanSwap2 (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 			FPStiming = (systemtickfrequency/((Shared -> FPSlocked))) - 6000;
 		}
 		else FPStiming = 0;
+		if ((Shared -> FPSlocked) == 0) 
+			changeFPS = false;
+		else changeFPS = true;
 		FPSlock = (Shared -> FPSlocked);
 	}
 	
@@ -475,6 +478,9 @@ uint32_t vulkanSwap (const void* VkQueue, const void* VkPresentInfoKHR) {
 			FPStiming = (systemtickfrequency/((Shared -> FPSlocked))) - 6000;
 		}
 		else FPStiming = 0;
+		if ((Shared -> FPSlocked) == 0) 
+			changeFPS = false;
+		else changeFPS = true;
 		FPSlock = (Shared -> FPSlocked);
 	}
 	
