@@ -404,20 +404,15 @@ void hijack_pid(u64 pid)
     if (hijack_bootstrap(&debug, pid, threadid, isA64)) {
         lastAppPID = pid;
         
-        ret = ldrDmntInitialize();
+        LoaderModuleInfo module_infos[2] = {0};
+        u32 module_infos_count = 0;
+        ret = ldrDmntGetModuleInfos(pid, module_infos, 2, &module_infos_count);
         if (R_SUCCEEDED(ret)) {
-            LoaderModuleInfo module_infos[2] = {0};
-            u32 module_infos_count = 0;
-            ret = ldrDmntGetModuleInfos(pid, module_infos, 2, &module_infos_count);
-            ldrDmntExit();
-            if (R_SUCCEEDED(ret)) {
-                BIDnow = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
-                SaltySD_printf("SaltySD: BID: %016lX\n", BIDnow);
-                ret = 0;
-            }
-            else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
+            BIDnow = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
+            SaltySD_printf("SaltySD: BID: %016lX\n", BIDnow);
+            ret = 0;
         }
-        else SaltySD_printf("SaltySD: cmd 8 ldrDmntInitialize failed! RC: 0x%X\n", ret);
+        else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
     }
     else {
         already_hijacking = false;
@@ -976,6 +971,16 @@ int main(int argc, char *argv[])
     sdcardfs.s.handle = sdcard;
     fsdevMountDevice("sdmc", sdcardfs);
     SaltySD_printf("SaltySD: got SD card.\n");
+
+    ldrDmntInitialize();
+    Service* ldrDmntSrv = ldrDmntGetServiceSession();
+    Service ldrDmntClone;
+    memcpy(&ldrDmntClone, ldrDmntSrv, sizeof(Service));
+    ldrDmntClone.object_id = ldrDmntSrv -> object_id;
+    ldrDmntClone.type = ldrDmntSrv -> type;
+    ipcCloneSession(ldrDmntSrv -> handle, 1, &ldrDmntClone.handle);
+    serviceClose(ldrDmntSrv);
+    memcpy(ldrDmntSrv, &ldrDmntClone, sizeof(Service));
 
     setsysInitialize();
     SetSysProductModel model;
