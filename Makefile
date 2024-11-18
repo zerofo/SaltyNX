@@ -16,10 +16,10 @@ libnx_min/nx/lib/libnx_min.a:
 libnx32_min/nx/lib/libnx_min.a:
 	@cd libnx32_min && make
 
-saltysd_proc/saltysd_proc.nsp: libnx_min/nx/lib/libnx_min.a
+saltysd_proc/saltysd_proc.nsp:
 	@cd saltysd_proc && make
 
-saltysd_bootstrap/saltysd_bootstrap.elf: saltysd_proc/saltysd_proc.nsp
+saltysd_bootstrap/saltysd_bootstrap.elf: libnx_min/nx/lib/libnx_min.a
 	@cd saltysd_bootstrap && make
 
 saltysd_bootstrap32/saltysd_bootstrap32.elf: libnx32_min/nx/lib/libnx_min.a
@@ -31,7 +31,7 @@ saltysd_core/saltysd_core.elf: saltysd_bootstrap/saltysd_bootstrap.elf
 saltysd_core32/saltysd_core32.elf: saltysd_bootstrap32/saltysd_bootstrap32.elf
 	@cd saltysd_core32 && make --ignore-errors
 
-sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp: saltysd_core/saltysd_core.elf saltysd_core32/saltysd_core32.elf
+sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp: saltysd_core/saltysd_core.elf saltysd_core32/saltysd_core32.elf saltysd_proc/saltysd_proc.nsp
 	@mkdir -p sdcard_out/atmosphere/contents/0000000000534C56/flags
 	@cp $< $@
 	@touch sdcard_out/atmosphere/contents/0000000000534C56/flags/boot2.flag

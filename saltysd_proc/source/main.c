@@ -1,11 +1,12 @@
-#include <switch_min.h>
+#include <switch.h>
+#include "ipc.h"
+#include "legacy_libnx.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <dirent.h>
-#include <switch_min/kernel/svc_extra.h>
-#include <switch_min/kernel/ipc.h>
+#include "svc_extra.h"
 
 #include "spawner_ipc.h"
 
@@ -136,11 +137,11 @@ bool GetDisplayRefreshRate(uint32_t* refreshRate) {
 
 bool isServiceRunning(const char *serviceName) {	
 	Handle handle;	
-	if (R_FAILED(smRegisterService(&handle, serviceName, false, 1))) 
+	if (R_FAILED(smRegisterService(&handle, smEncodeName(serviceName), false, 1))) 
 		return true;
 	else {
 		svcCloseHandle(handle);	
-		smUnregisterService(serviceName);
+		smUnregisterService(smEncodeName(serviceName));
 		return false;
 	}
 }
@@ -260,7 +261,7 @@ bool hijack_bootstrap(Handle* debug, u64 pid, u64 tid, bool isA64)
 void hijack_pid(u64 pid)
 {
     Result ret = -1;
-    u32 threads = 0;
+    s32 threads = 0;
     Handle debug;
     
     FILE* disabled = fopen("sdmc:/SaltySD/flags/disable.flag", "r");
@@ -405,14 +406,14 @@ void hijack_pid(u64 pid)
         lastAppPID = pid;
         
         LoaderModuleInfo module_infos[2] = {0};
-        u32 module_infos_count = 0;
-        ret = ldrDmntGetModuleInfos(pid, module_infos, 2, &module_infos_count);
+        s32 module_infos_count = 0;
+        ret = ldrDmntGetProcessModuleInfo(pid, module_infos, 2, &module_infos_count);
         if (R_SUCCEEDED(ret)) {
             BIDnow = __builtin_bswap64(*(uint64_t*)&module_infos[1].build_id[0]);
             SaltySD_printf("SaltySD: BID: %016lX\n", BIDnow);
             ret = 0;
         }
-        else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetModuleInfos failed! RC: 0x%X\n", ret);
+        else SaltySD_printf("SaltySD: cmd 8 ldrDmntGetProcessModuleInfo failed! RC: 0x%X\n", ret);
     }
     else {
         already_hijacking = false;
@@ -848,7 +849,7 @@ void serviceThread(void* buf)
             Handle replySession = 0;
             while (1)
             {
-                ret = svcReplyAndReceive(&handle_index, &session, 1, replySession, U64_MAX);
+                ret = svcReplyAndReceive(&handle_index, &session, 1, replySession, UINT64_MAX);
                 
                 if (should_terminate) break;
                 
@@ -885,98 +886,25 @@ void serviceThread(void* buf)
     SaltySD_printf("SaltySD: done accepting service calls\n");
 }
 
-Result fsp_init(Service fsp)
-{
-    Result rc;
-    IpcCommand c;
-    ipcInitialize(&c);
-    ipcSendPid(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u64 unk;
-    } *raw;
-
-    raw = ipcPrepareHeader(&c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 1;
-    raw->unk = 0;
-
-    rc = serviceIpcDispatch(&fsp);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        ipcParse(&r);
-
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp = r.Raw;
-
-        rc = resp->result;
-    }
-    
-    return rc;
-}
-
-Result fsp_getSdCard(Service fsp, Handle* out)
-{
-    Result rc;
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = ipcPrepareHeader(&c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 18;
-
-    rc = serviceIpcDispatch(&fsp);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        ipcParse(&r);
-
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp = r.Raw;
-
-        *out = r.Handles[0];
-
-        rc = resp->result;
-    }
-    
-    return rc;
-}
-
 int main(int argc, char *argv[])
 {
     
     svcSleepThread(1*1000*1000*1000);
-    smInitialize();
-
-    Service toget;
-    smGetService(&toget, "fsp-srv");
+    smInitialize_old();
+    Service_old toget;
+    smGetService_old(&toget, "fsp-srv");
     fsp_init(toget);
     fsp_getSdCard(toget, &sdcard);
-    SaltySD_printf("SaltySD: got SD card dev.\n");
-    FsFileSystem sdcardfs;
-    sdcardfs.s.handle = sdcard;
-    fsdevMountDevice("sdmc", sdcardfs);
+    smExit_old();
+    smInitialize();
+    fsInitialize();
+    fsdevMountSdmc();
     SaltySD_printf("SaltySD: got SD card.\n");
 
     ldrDmntInitialize();
     Service* ldrDmntSrv = ldrDmntGetServiceSession();
     Service ldrDmntClone;
-    memcpy(&ldrDmntClone, ldrDmntSrv, sizeof(Service));
-    ipcCloneSession(ldrDmntSrv -> handle, 1, &ldrDmntClone.handle);
+    serviceClone(ldrDmntSrv, &ldrDmntClone);
     serviceClose(ldrDmntSrv);
     memcpy(ldrDmntSrv, &ldrDmntClone, sizeof(Service));
 
@@ -1016,7 +944,7 @@ int main(int argc, char *argv[])
     u64 max = 0;
     while (1)
     {
-        u32 num;
+        s32 num;
         svcGetProcessList(&num, pids, 0x200);
 
         u64 old_max = max;
@@ -1044,7 +972,7 @@ int main(int argc, char *argv[])
                 else {
                     Handle debug_handle;
                     if (R_SUCCEEDED(svcDebugActiveProcess(&debug_handle, lastAppPID))) {
-                        u32 thread_count;
+                        s32 thread_count;
                         u64 threads[2];
                         svcGetThreadList(&thread_count, threads, 2, debug_handle);
                         svcCloseHandle(debug_handle);
