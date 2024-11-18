@@ -131,7 +131,7 @@ Result smInitialize_old(void)
     }
 
     if (R_FAILED(rc))
-        smExit();
+        smExit_old();
 
     return rc;
 }
