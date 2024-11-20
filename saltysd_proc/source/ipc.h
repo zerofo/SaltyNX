@@ -843,4 +843,85 @@ static inline void serviceCreate_old(Service_old* s, Handle h) {
     s->object_id = IPC_INVALID_OBJECT_ID;
 }
 
+/**
+ * @brief Returns whether a service is overriden in the homebrew environment.
+ * @param[in] s Service object.
+ * @return true if overriden.
+ */
+static inline bool serviceIsOverride_old(Service_old* s) {
+    return s->type == ServiceType_Override;
+}
+
+/**
+ * @brief Converts a regular service to a domain.
+ * @param[in] s Service object.
+ * @return Result code.
+ */
+static inline Result serviceConvertToDomain_old(Service_old* s) {
+    Result rc = 0;
+    if (serviceIsOverride_old(s)) {
+        rc = ipcCloneSession(s->handle, 1, &s->handle);
+        if (R_FAILED(rc)) {
+            return rc;
+        }
+        s->type = ServiceType_Normal;
+    }
+    rc = ipcConvertSessionToDomain(s->handle, &s->object_id);
+    if (R_SUCCEEDED(rc)) {
+        s->type = ServiceType_Domain;
+    }
+    return rc;
+}
+
+/**
+ * @brief For a domain/domain subservice, return the associated object ID.
+ * @param[in] s Service object, necessarily a domain or domain subservice.
+ * @return The object ID.
+ */
+static inline u32 serviceGetObjectId_old(Service_old* s) {
+    return s->object_id;
+}
+
+/**
+ * @brief Prepares the header of an IPC command structure for a service.
+ * @param s Service to prepare message header for
+ * @param cmd IPC command structure.
+ * @param sizeof_raw Size in bytes of the raw data structure to embed inside the IPC request
+ * @return Pointer to the raw embedded data structure in the request, ready to be filled out.
+ */
+static inline void* serviceIpcPrepareHeader(Service_old* s, IpcCommand* cmd, size_t sizeof_raw) {
+    if (serviceIsDomain_old(s) || serviceIsDomainSubservice_old(s)) {
+        return ipcPrepareHeaderForDomain(cmd, sizeof_raw, serviceGetObjectId_old(s));
+    } else {
+        return ipcPrepareHeader(cmd, sizeof_raw);
+    }
+}
+
+/**
+ * @brief Creates a domain subservice object from a parent service.
+ * @param[out] s Service object.
+ * @param[in] parent Parent service, necessarily a domain or domain subservice.
+ * @param[in] object_id Object ID for this subservice.
+ */
+static inline void serviceCreateDomainSubservice_old(Service_old* s, Service_old* parent, u32 object_id) {
+    s->handle = parent->handle;
+    s->type = ServiceType_DomainSubservice;
+    s->object_id = object_id;
+}
+
+/**
+ * @brief Creates a subservice object from a parent service.
+ * @param[out] s Service object.
+ * @param[in] parent Parent service, possibly a domain or domain subservice.
+ * @param[in] r Parsed IPC command containing handles/object IDs to create subservice from.
+ * @param[in] i The index of the handle/object ID to create subservice from.
+ */
+static inline void serviceCreateSubservice_old(Service_old* s, Service_old* parent, IpcParsedCommand* r, int i) {
+    if (r->IsDomainResponse) {
+        return serviceCreateDomainSubservice_old(s, parent, r->OutObjectIds[i]);
+    } else {
+        return serviceCreate_old(s, r->Handles[i]);
+    }
+}
+
 ///@}

@@ -1,6 +1,7 @@
 #include <switch.h>
 #include "ipc.h"
 #include "legacy_libnx.h"
+#include "fs_dev.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -895,12 +896,14 @@ int main(int argc, char *argv[])
     smGetService_old(&toget, "fsp-srv");
     fsp_init(toget);
     fsp_getSdCard(toget, &sdcard);
+    FsFileSystem_old sdcardfs;
+    sdcardfs.s.handle = sdcard;
+    fsdevMountDevice_old("sdmc", sdcardfs);
+    //serviceClose_old(&toget);
     smExit_old();
     smInitialize();
-    fsInitialize();
-    fsdevMountSdmc();
     SaltySD_printf("SaltySD: got SD card.\n");
-
+    
     ldrDmntInitialize();
     Service* ldrDmntSrv = ldrDmntGetServiceSession();
     Service ldrDmntClone;
