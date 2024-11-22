@@ -71,6 +71,7 @@ SystemEvent* defaultDisplayResolutionChangeEventCopy = 0;
 SystemEvent* notificationMessageEventCopy = 0;
 void* multiWaitHolderCopy = 0;
 void* multiWaitCopy = 0;
+bool multiWaitHack = false;
 
 ReverseNX_state loadSave() {
 	char path[128];
@@ -132,6 +133,11 @@ bool TryPopNotificationMessage(int &msg) {
 			msg = 0x1e;
 			return true;
 		}
+		else if (multiWaitHack == true) {
+			multiWaitHack = false;
+			msg = 0xFF;
+			return true;
+		}
 		else return ((_ZN2nn2oe25TryPopNotificationMessageEPj)(Address_weaks.TryPopNotificationMessage))(msg);
 	}
 	
@@ -147,7 +153,11 @@ bool TryPopNotificationMessage(int &msg) {
 		msg = 0x1e;
 		return true;
 	}
-	
+	if (multiWaitHack == true) {
+		multiWaitHack = false;
+		msg = 0xFF;
+		return true;
+	}
 	return ((_ZN2nn2oe25TryPopNotificationMessageEPj)(Address_weaks.TryPopNotificationMessage))(msg);
 }
 
@@ -290,24 +300,11 @@ void LinkMultiWaitHolder(void* MultiWaitType, void* MultiWaitHolderType) {
 void* WaitAny(void* MultiWaitType) {
 	if (multiWaitCopy != MultiWaitType)
 		return ((nnosWaitAny)(Address_weaks.WaitAny))(MultiWaitType);
-	static uint8_t compare = 255;
-	if (compare == 255) compare = GetOperationMode(); //Trick for saving space
-	static uint8_t compare_def = 255;
-	if (compare_def == 255) compare_def = ReverseNX_RT->def; //Trick for saving space
 	ReverseNX_RT->pluginActive = true;
-	while(true) {
-		void* ret_value = ((nnosTimedWaitAny)(Address_weaks.TimedWaitAny))(MultiWaitType, 1000000);
-		if (ret_value != NULL) return ret_value;
-		if (compare_def == false && ReverseNX_RT->def == true) {
-			compare_def = ReverseNX_RT->def;
-			return multiWaitHolderCopy;
-		}
-		else compare_def = ReverseNX_RT->def;
-		if (!compare_def && compare != ReverseNX_RT->isDocked) {
-			compare = ReverseNX_RT->isDocked;
-			return multiWaitHolderCopy;
-		}
-	}
+	void* ret_value = ((nnosTimedWaitAny)(Address_weaks.TimedWaitAny))(MultiWaitType, 1000000);
+	if (ret_value != NULL) return ret_value;
+	multiWaitHack = true;
+	return multiWaitHolderCopy;
 }
 
 extern "C" {
