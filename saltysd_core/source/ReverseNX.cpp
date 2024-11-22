@@ -168,6 +168,9 @@ uint32_t GetPerformanceMode() {
 }
 
 uint8_t GetOperationMode() {
+	//Fix for Unravel Two that calls this function constantly without checking notifications
+	ReverseNX_RT->pluginActive = true;
+
 	if (ReverseNX_RT->def) ReverseNX_RT->isDocked = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
 	
 	return ReverseNX_RT->isDocked;
