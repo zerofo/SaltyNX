@@ -259,7 +259,7 @@ void WaitSystemEvent(SystemEvent* systemEvent) {
 }
 
 /* 
-	Used by Monster Hunter Rise.
+	Used by Monster Hunter Rise and The Legend of Zelda: Echoes of Wisdom
 
 	Game won't check if mode was changed until NotificationMessage event will be flagged.
 	Functions below are detecting which MultiWait includes NotificationMessage event,
@@ -290,7 +290,24 @@ void LinkMultiWaitHolder(void* MultiWaitType, void* MultiWaitHolderType) {
 void* WaitAny(void* MultiWaitType) {
 	if (multiWaitCopy != MultiWaitType)
 		return ((nnosWaitAny)(Address_weaks.WaitAny))(MultiWaitType);
-	return ((nnosTimedWaitAny)(Address_weaks.TimedWaitAny))(MultiWaitType, 1000000);
+	static uint8_t compare = 255;
+	if (compare == 255) compare = GetOperationMode(); //Trick for saving space
+	static uint8_t compare_def = 255;
+	if (compare_def == 255) compare_def = ReverseNX_RT->def; //Trick for saving space
+	ReverseNX_RT->pluginActive = true;
+	while(true) {
+		void* ret_value = ((nnosTimedWaitAny)(Address_weaks.TimedWaitAny))(MultiWaitType, 1000000);
+		if (ret_value != NULL) return ret_value;
+		if (compare_def == false && ReverseNX_RT->def == true) {
+			compare_def = ReverseNX_RT->def;
+			return multiWaitHolderCopy;
+		}
+		else compare_def = ReverseNX_RT->def;
+		if (!compare_def && compare != ReverseNX_RT->isDocked) {
+			compare = ReverseNX_RT->isDocked;
+			return multiWaitHolderCopy;
+		}
+	}
 }
 
 extern "C" {
