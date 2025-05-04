@@ -43,31 +43,70 @@ struct NVNViewport {
 	float height;
 };
 
+struct VkViewport{
+	float    x;
+	float    y;
+	float    width;
+	float    height;
+	float    minDepth;
+	float    maxDepth;
+};
+
+struct glViewportArray {
+	float x;
+	float y;
+	float width;
+	float height;
+};
+
 extern "C" {
 	typedef u64 (*nvnBootstrapLoader_0)(const char * nvnName);
 	typedef int (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
 	typedef int (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
+	typedef void (*glViewport_0)(int x, int y, uint width, uint height);
+	typedef void (*glViewportArrayv_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+	typedef void (*glViewportArrayvNV_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+	typedef void (*glViewportArrayvOES_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+	typedef void (*glViewportIndexedf_0)(uint index, float x, float y, float width, float height);
+	typedef void (*glViewportIndexedfv_0)(uint index, const glViewportArray* pViewports);
+	typedef void (*glViewportIndexedfNV_0)(uint index, float x, float y, float width, float height);
+	typedef void (*glViewportIndexedfvNV_0)(uint index, const glViewportArray* pViewports);
+	typedef void (*glViewportIndexedfOES_0)(uint index, float x, float y, float width, float height);
+	typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pViewports);
 	typedef u32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
 	typedef u32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 	typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
 	typedef u64 (*eglGetProcAddress_0)(const char* eglName);
 	typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
-	typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
-	typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
-	typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, NVNViewport* viewports);
+	typedef void* (*nvnCommandBufferSetRenderTargets_0)(const void* cmdBuf, int numTextures, const NVNTexture** texture, const NVNTextureView** textureView, const NVNTexture* depth, const NVNTextureView* depthView);
+	typedef void* (*nvnCommandBufferSetViewport_0)(const void* cmdBuf, int x, int y, int width, int height);
+	typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, const NVNViewport* viewports);
 	typedef void* (*nvnCommandBufferSetDepthRange_0)(void* cmdBuf, float s0, float s1);
-	typedef u16 (*nvnTextureGetWidth_0)(NVNTexture* texture);
-	typedef u16 (*nvnTextureGetHeight_0)(NVNTexture* texture);
-	typedef u32 (*nvnTextureGetFormat_0)(NVNTexture* texture);
+	typedef u16 (*nvnTextureGetWidth_0)(const NVNTexture* texture);
+	typedef u16 (*nvnTextureGetHeight_0)(const NVNTexture* texture);
+	typedef u32 (*nvnTextureGetFormat_0)(const NVNTexture* texture);
 	typedef void* (*_vkGetInstanceProcAddr_0)(void* instance, const char* vkFunction);
 	typedef void* (*vkGetDeviceProcAddr_0)(void* device, const char* vkFunction);
+	typedef u32 (*_ZN2nn2ro12LookupSymbolEPmPKc_0)(uintptr_t* pOutAddress, const char* name);
+	typedef void (*vkCmdSetViewport_0)(void* commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports);
+	typedef void (*vkCmdSetViewportWithCount_0)(void* commandBuffer, uint32_t viewportCount, const VkViewport* pViewports);
 }
 
 struct {
 	uintptr_t nvnBootstrapLoader;
 	uintptr_t eglSwapBuffers;
 	uintptr_t eglSwapInterval;
+	uintptr_t glViewport;
+	uintptr_t glViewportArrayv;
+	uintptr_t glViewportArrayvNV;
+	uintptr_t glViewportArrayvOES;
+	uintptr_t glViewportIndexedf;
+	uintptr_t glViewportIndexedfv;
+	uintptr_t glViewportIndexedfNV;
+	uintptr_t glViewportIndexedfvNV;
+	uintptr_t glViewportIndexedfOES;
+	uintptr_t glViewportIndexedfvOES;
 	uintptr_t vkQueuePresentKHR;
 	uintptr_t nvSwapchainQueuePresentKHR;
 	uintptr_t ConvertToTimeSpan;
@@ -76,6 +115,9 @@ struct {
 	uintptr_t GetOperationMode;
 	uintptr_t ReferSymbol;
 	uintptr_t vkGetInstanceProcAddr;
+	uintptr_t LookupSymbol;
+	uintptr_t vkCmdSetViewport;
+	uintptr_t vkCmdSetViewportWithCount;
 } Address_weaks;
 
 struct nvnWindowBuilder {
@@ -103,8 +145,8 @@ Result readConfig(const char* path, uint8_t** output_buffer) {
 		free(buffer);
 		return 0x1201;
 	}
-	if (LOCK::gen == 2) {
-		Result ret = LOCK::applyMasterWrite(patch_file, configSize, header_size - 4);
+	if (LOCK::masterWrite) {
+		Result ret = LOCK::applyMasterWrite(patch_file, header_size - 4);
 		if (R_FAILED(ret))  {
 			SaltySDCore_fclose(patch_file);
 			return ret;
@@ -128,6 +170,9 @@ struct resolutionCalls {
 
 bool resolutionLookup = false;
 
+resolutionCalls m_resolutionRenderCalls[8] = {0};
+resolutionCalls m_resolutionViewportCalls[8] = {0};
+
 struct NxFpsSharedBlock {
 	uint32_t MAGIC;
 	uint8_t FPS;
@@ -147,6 +192,7 @@ struct NxFpsSharedBlock {
 	resolutionCalls renderCalls[8];
 	resolutionCalls viewportCalls[8];
 	bool forceOriginalRefreshRate;
+	bool dontForce60InDocked;
 } PACKED;
 
 NxFpsSharedBlock* Shared = 0;
@@ -185,9 +231,9 @@ typedef uintptr_t (*GetProcAddress)(const void* unk1_a, const char * nvnFunction
 
 bool changeFPS = false;
 bool changedFPS = false;
-typedef void (*nvnBuilderSetTextures_0)(const nvnWindowBuilder* nvnWindowBuilder, int buffers, NVNTexture** texturesBuffer);
+typedef void (*nvnBuilderSetTextures_0)(const nvnWindowBuilder* nvnWindowBuilder, int buffers, const NVNTexture** texturesBuffer);
 typedef void (*nvnWindowSetNumActiveTextures_0)(const NVNWindow* nvnWindow, int buffers);
-typedef bool (*nvnWindowInitialize_0)(const NVNWindow* nvnWindow, struct nvnWindowBuilder* windowBuilder);
+typedef bool (*nvnWindowInitialize_0)(const NVNWindow* nvnWindow, const struct nvnWindowBuilder* windowBuilder);
 typedef void* (*nvnWindowAcquireTexture_0)(const NVNWindow* nvnWindow, const void* nvnSync, const void* index);
 typedef void (*nvnSetPresentInterval_0)(const NVNWindow* nvnWindow, int mode);
 typedef int (*nvnGetPresentInterval_0)(const NVNWindow* nvnWindow);
@@ -256,7 +302,7 @@ namespace NX_FPS_Math {
 		new_fpslock = (LOCK::overwriteRefreshRate ? LOCK::overwriteRefreshRate : (Shared -> FPSlocked));
 		OpMode = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
 		if (old_force != (Shared -> forceOriginalRefreshRate)) {
-			if (OpMode == 1)
+			if (OpMode == 1 && !(Shared -> dontForce60InDocked))
 				svcSleepThread(LOCK::DockedRefreshRateDelay);
 			old_force = (Shared -> forceOriginalRefreshRate);
 		}
@@ -303,7 +349,7 @@ namespace NX_FPS_Math {
 			starttick2 = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 			LOCK::overwriteRefreshRate = 0;
 			if (!configRC && FPSlock) {
-				LOCK::applyPatch(configBuffer, configSize, FPSlock, (Shared -> displaySync));
+				LOCK::applyPatch(configBuffer, FPSlock, (Shared -> displaySync));
 			}
 		}
 		if (deltatick > systemtickfrequency) {
@@ -321,6 +367,17 @@ namespace NX_FPS_Math {
 
 		(Shared -> FPSavg) = Stats.FPSavg;
 		(Shared -> pluginActive) = true;
+
+		if (!resolutionLookup && Shared -> renderCalls[0].calls == 0xFFFF) {
+			resolutionLookup = true;
+			Shared -> renderCalls[0].calls = 0;
+		}
+		if (resolutionLookup) {
+			memcpy(Shared -> renderCalls, m_resolutionRenderCalls, sizeof(m_resolutionRenderCalls));
+			memcpy(Shared -> viewportCalls, m_resolutionViewportCalls, sizeof(m_resolutionViewportCalls));
+			memset(&m_resolutionRenderCalls, 0, sizeof(m_resolutionRenderCalls));
+			memset(&m_resolutionViewportCalls, 0, sizeof(m_resolutionViewportCalls));
+		}
 
 	}
 }
@@ -385,6 +442,56 @@ namespace vk {
 		return vulkanResult;
 	}
 
+	void CmdSetViewport(void* commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports) {
+		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((vkCmdSetViewport_0)(Address_weaks.vkCmdSetViewport))(commandBuffer, firstViewport, viewportCount, pViewports);
+	}
+
+	void CmdSetViewportWithCount(void* commandBuffer, uint32_t viewportCount, const VkViewport* pViewports) {
+		if (resolutionLookup) for (uint i = 0; i < viewportCount; i++) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((vkCmdSetViewportWithCount_0)(Address_weaks.vkCmdSetViewportWithCount))(commandBuffer, viewportCount, pViewports);
+	}
+
 	void* GetDeviceProcAddr(void* device, const char* vkFunction) {
 		if (!strcmp("vkQueuePresentKHR", vkFunction)) {
 			Address_weaks.vkQueuePresentKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
@@ -393,6 +500,14 @@ namespace vk {
 		if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
 			Ptrs.vkGetDeviceProcAddr = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
 			return (void*)&GetDeviceProcAddr;
+		}
+		if (!strcmp("vkCmdSetViewport", vkFunction)) {
+			Address_weaks.vkCmdSetViewport = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
+			return (void*)&CmdSetViewport;
+		}
+		if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
+			Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
+			return (void*)&CmdSetViewportWithCount;
 		}
 		return ((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
 	}
@@ -407,6 +522,19 @@ namespace vk {
 			return (void*)&GetDeviceProcAddr;
 		}
 		return ((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
+	}
+
+	u32 LookupSymbol(uintptr_t* pOutAddress, const char* name) {
+		if (!strcmp("vkGetInstanceProcAddr", name)) {
+			*pOutAddress = (uintptr_t)&GetInstanceProcAddr;
+			return 0;
+		}
+		if (!strcmp("vkGetDeviceProcAddr", name)) {
+			((_ZN2nn2ro12LookupSymbolEPmPKc_0)(Address_weaks.LookupSymbol))(&Ptrs.vkGetDeviceProcAddr, name);
+			*pOutAddress = (uintptr_t)&GetDeviceProcAddr;
+			return 0;
+		}
+		return ((_ZN2nn2ro12LookupSymbolEPmPKc_0)(Address_weaks.LookupSymbol))(pOutAddress, name);
 	}
 }
 
@@ -488,12 +616,293 @@ namespace EGL {
 		return result;
 	}
 
+	void Viewport(int x, int y, uint width, uint height) {
+		if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
+			int ratio = (width * 10) / height;
+			if (ratio >= 12 && ratio <= 18) {
+				//Dynamic Resolution is always the second value passed
+				for (size_t i = 0; i < 8; i++) {
+					if (width == m_resolutionViewportCalls[i].width) {
+						m_resolutionViewportCalls[i].calls++;
+						break;
+					}
+					if (m_resolutionViewportCalls[i].width == 0) {
+						m_resolutionViewportCalls[i].width = width;
+						m_resolutionViewportCalls[i].height = height;
+						m_resolutionViewportCalls[i].calls = 1;
+						break;
+					}
+				}			
+			}
+		}
+		return ((glViewport_0)(Address_weaks.glViewport))(x, y, width, height);
+	}
+
+	
+	void ViewportArrayv(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
+		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportArrayv_0)(Address_weaks.glViewportArrayv))(firstViewport, viewportCount, pViewports);
+	}
+
+	void ViewportArrayvNV(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
+		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportArrayvNV_0)(Address_weaks.glViewportArrayvNV))(firstViewport, viewportCount, pViewports);
+	}
+
+	void ViewportArrayvOES(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
+		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportArrayvOES_0)(Address_weaks.glViewportArrayvOES))(firstViewport, viewportCount, pViewports);
+	}
+
+	void ViewportIndexedf(uint index, float x, float y, float width, float height) {
+		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
+			int ratio = (width * 10) / height;
+			if (ratio >= 12 && ratio <= 18) {
+				//Dynamic Resolution is always the second value passed
+				for (size_t i = 0; i < 8; i++) {
+					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
+						m_resolutionViewportCalls[i].calls++;
+						break;
+					}
+					if (m_resolutionViewportCalls[i].width == 0) {
+						m_resolutionViewportCalls[i].width = (uint16_t)width;
+						m_resolutionViewportCalls[i].height = (uint16_t)height;
+						m_resolutionViewportCalls[i].calls = 1;
+						break;
+					}
+				}			
+			}
+		}
+		return ((glViewportIndexedf_0)(Address_weaks.glViewportIndexedf))(index, x, y, width, height);
+	}
+
+	void ViewportIndexedfv(uint i, const glViewportArray* pViewports) {
+		if (resolutionLookup) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportIndexedfv_0)(Address_weaks.glViewportIndexedfv))(i, pViewports);
+	}
+
+	void ViewportIndexedfNV(uint index, float x, float y, float width, float height) {
+		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
+			int ratio = (width * 10) / height;
+			if (ratio >= 12 && ratio <= 18) {
+				//Dynamic Resolution is always the second value passed
+				for (size_t i = 0; i < 8; i++) {
+					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
+						m_resolutionViewportCalls[i].calls++;
+						break;
+					}
+					if (m_resolutionViewportCalls[i].width == 0) {
+						m_resolutionViewportCalls[i].width = (uint16_t)width;
+						m_resolutionViewportCalls[i].height = (uint16_t)height;
+						m_resolutionViewportCalls[i].calls = 1;
+						break;
+					}
+				}			
+			}
+		}
+		return ((glViewportIndexedfNV_0)(Address_weaks.glViewportIndexedfNV))(index, x, y, width, height);
+	}
+
+	void ViewportIndexedfvNV(uint i, const glViewportArray* pViewports) {
+		if (resolutionLookup) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportIndexedfvNV_0)(Address_weaks.glViewportIndexedfvNV))(i, pViewports);
+	}
+
+	void ViewportIndexedfOES(uint index, float x, float y, float width, float height) {
+		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
+			int ratio = (width * 10) / height;
+			if (ratio >= 12 && ratio <= 18) {
+				//Dynamic Resolution is always the second value passed
+				for (size_t i = 0; i < 8; i++) {
+					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
+						m_resolutionViewportCalls[i].calls++;
+						break;
+					}
+					if (m_resolutionViewportCalls[i].width == 0) {
+						m_resolutionViewportCalls[i].width = (uint16_t)width;
+						m_resolutionViewportCalls[i].height = (uint16_t)height;
+						m_resolutionViewportCalls[i].calls = 1;
+						break;
+					}
+				}			
+			}
+		}
+		return ((glViewportIndexedfOES_0)(Address_weaks.glViewportIndexedfOES))(index, x, y, width, height);
+	}
+
+	void ViewportIndexedfvOES(uint i, const glViewportArray* pViewports) {
+		if (resolutionLookup) {
+			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+				uint16_t width = (uint16_t)(pViewports[i].width);
+				uint16_t height = (uint16_t)(pViewports[i].height);
+				int ratio = (width * 10) / height;
+				if (ratio >= 12 && ratio <= 18) {
+					for (size_t i = 0; i < 8; i++) {
+						if (width == m_resolutionViewportCalls[i].width) {
+							m_resolutionViewportCalls[i].calls++;
+							break;
+						}
+						if (m_resolutionViewportCalls[i].width == 0) {
+							m_resolutionViewportCalls[i].width = width;
+							m_resolutionViewportCalls[i].height = height;
+							m_resolutionViewportCalls[i].calls = 1;
+							break;
+						}
+					}			
+				}
+			}
+		}
+		return ((glViewportIndexedfvOES_0)(Address_weaks.glViewportIndexedfvOES))(i, pViewports);
+	}
+
 	uintptr_t GetProc(const char* eglName) {
 		if (!strcmp(eglName, "eglSwapInterval")) {
+			if (!Address_weaks.eglSwapInterval) Address_weaks.eglSwapInterval = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
 			return (uintptr_t)&Interval;
 		}
 		else if (!strcmp(eglName, "eglSwapBuffers")) {
+			if (!Address_weaks.eglSwapBuffers) Address_weaks.eglSwapBuffers = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
 			return (uintptr_t)&Swap;
+		}
+		else if (!strcmp(eglName, "glViewport")) {
+			if (!Address_weaks.glViewport) Address_weaks.glViewport = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&Viewport;
+		}
+		else if (!strcmp(eglName, "glViewportArrayv")) {
+			if (!Address_weaks.glViewportArrayv) Address_weaks.glViewportArrayv = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportArrayv;
+		}
+		else if (!strcmp(eglName, "glViewportArrayvNV")) {
+			if (!Address_weaks.glViewportArrayvNV) Address_weaks.glViewportArrayvNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportArrayvNV;
+		}
+		else if (!strcmp(eglName, "glViewportArrayvOES")) {
+			if (!Address_weaks.glViewportArrayvOES) Address_weaks.glViewportArrayvOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportArrayvOES;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedf")) {
+			if (!Address_weaks.glViewportIndexedf) Address_weaks.glViewportIndexedf = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedf;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedfNV")) {
+			if (!Address_weaks.glViewportIndexedfNV) Address_weaks.glViewportIndexedfNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedfNV;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedfOES")) {
+			if (!Address_weaks.glViewportIndexedfOES) Address_weaks.glViewportIndexedfOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedfOES;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedfv")) {
+			if (!Address_weaks.glViewportIndexedfv) Address_weaks.glViewportIndexedfv = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedfv;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedfvNV")) {
+			if (!Address_weaks.glViewportIndexedfvNV) Address_weaks.glViewportIndexedfvNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedfvNV;
+		}
+		else if (!strcmp(eglName, "glViewportIndexedfvOES")) {
+			if (!Address_weaks.glViewportIndexedfvOES) Address_weaks.glViewportIndexedfvOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			return (uintptr_t)&ViewportIndexedfvOES;
 		}
 		return ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
 	}
@@ -512,10 +921,10 @@ namespace NVN {
 		return ((nvnWindowInitialize_0)(Ptrs.nvnWindowInitialize))(nvnWindow, windowBuilder);
 	}
 
-	void WindowBuilderSetTextures(const nvnWindowBuilder* nvnWindowBuilder, int numBufferedFrames, NVNTexture** nvnTextures) {
+	void WindowBuilderSetTextures(const nvnWindowBuilder* nvnWindowBuilder, int numBufferedFrames, const NVNTexture** nvnTextures) {
 		(Shared -> Buffers) = numBufferedFrames;
 		for (int i = 0; i < numBufferedFrames; i++) {
-			framebufferTextures[i] = nvnTextures[i];
+			framebufferTextures[i] = (NVNTexture*)nvnTextures[i];
 		}
 		if ((Shared -> SetBuffers) >= 2 && (Shared -> SetBuffers) <= numBufferedFrames) {
 			numBufferedFrames = (Shared -> SetBuffers);
@@ -570,8 +979,6 @@ namespace NVN {
 		return ((nvnSyncWait_0)(Ptrs.nvnSyncWait))(_this, timeout_ns);
 	}
 
-	bool nvnPresentedTexture = false;
-
 	void PresentTexture(const void* _this, const NVNWindow* nvnWindow, const void* unk3) {
 
 		//Initialize time calculation;
@@ -583,7 +990,6 @@ namespace NVN {
 		
 		NX_FPS_Math::PreFrame();
 		((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, unk3);
-		nvnPresentedTexture = true;
 		NX_FPS_Math::PostFrame();
 
 		(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
@@ -664,11 +1070,8 @@ namespace NVN {
 		char reserved[0x80];
 	};
 
-	resolutionCalls m_resolutionRenderCalls[8] = {0};
-	resolutionCalls m_resolutionViewportCalls[8] = {0};
-
 	void* CommandBufferSetViewports(nvnCommandBuffer* cmdBuf, int start, int count, NVNViewport* viewports) {
-		if (resolutionLookup) for (int i = start; i < count; i++) {
+		if (resolutionLookup) for (int i = start; i < start+count; i++) {
 			if (viewports[i].height > 1.f && viewports[i].width > 1.f && viewports[i].x == 0.f && viewports[i].y == 0.f) {
 				uint16_t width = (uint16_t)(viewports[i].width);
 				uint16_t height = (uint16_t)(viewports[i].height);
@@ -693,7 +1096,7 @@ namespace NVN {
 		return ((nvnCommandBufferSetViewports_0)(Ptrs.nvnCommandBufferSetViewports))(cmdBuf, start, count, viewports);
 	}
 
-	void* CommandBufferSetViewport(nvnCommandBuffer* cmdBuf, int x, int y, int width, int height) {
+	void* CommandBufferSetViewport(const nvnCommandBuffer* cmdBuf, int x, int y, int width, int height) {
 		if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
 			int ratio = (width * 10) / height;
 			if (ratio >= 12 && ratio <= 18) {
@@ -715,23 +1118,12 @@ namespace NVN {
 		return ((nvnCommandBufferSetViewport_0)(Ptrs.nvnCommandBufferSetViewport))(cmdBuf, x, y, width, height);
 	}
 
-	void* CommandBufferSetRenderTargets(nvnCommandBuffer* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depthTexture, NVNTextureView* depthView) {
-		if (!resolutionLookup && Shared -> renderCalls[0].calls == 0xFFFF) {
-			resolutionLookup = true;
-			Shared -> renderCalls[0].calls = 0;
-		}
+	void* CommandBufferSetRenderTargets(const nvnCommandBuffer* cmdBuf, int numTextures, const NVNTexture** texture, const NVNTextureView** textureView, const NVNTexture* depthTexture, const NVNTextureView* depthView) {
 		if (resolutionLookup && depthTexture != NULL && texture != NULL) {
 			uint16_t depth_width = ((nvnTextureGetWidth_0)(Ptrs.nvnTextureGetWidth))(depthTexture);
 			uint16_t depth_height = ((nvnTextureGetHeight_0)(Ptrs.nvnTextureGetHeight))(depthTexture);
 			int depth_format = ((nvnTextureGetFormat_0)(Ptrs.nvnTextureGetFormat))(depthTexture);
 			if (depth_width > 1 && depth_height > 1 && (depth_format >= 51 && depth_format <= 54)) {
-				if (nvnPresentedTexture) {
-					memcpy(Shared -> renderCalls, m_resolutionRenderCalls, sizeof(m_resolutionRenderCalls));
-					memcpy(Shared -> viewportCalls, m_resolutionViewportCalls, sizeof(m_resolutionViewportCalls));
-					memset(&m_resolutionRenderCalls, 0, sizeof(m_resolutionRenderCalls));
-					memset(&m_resolutionViewportCalls, 0, sizeof(m_resolutionViewportCalls));
-					nvnPresentedTexture = false;
-				}
 				bool found = false;
 				int ratio = ((depth_width * 10) / (depth_height));
 				if (ratio < 12 || ratio > 18) {
@@ -851,13 +1243,41 @@ extern "C" {
 			Address_weaks.eglGetProcAddress = SaltySDCore_FindSymbolBuiltin("eglGetProcAddress");
 			Address_weaks.GetOperationMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
 			Address_weaks.vkGetInstanceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetInstanceProcAddr");
+			Address_weaks.LookupSymbol = SaltySDCore_FindSymbolBuiltin("_ZN2nn2ro12LookupSymbolEPmPKc");
+			Address_weaks.vkCmdSetViewport = SaltySDCore_FindSymbolBuiltin("vkCmdSetViewport");
+			Address_weaks.glViewport = SaltySDCore_FindSymbolBuiltin("glViewport");
+			Address_weaks.glViewportArrayv = SaltySDCore_FindSymbolBuiltin("glViewportArrayv");
+			Address_weaks.glViewportArrayvNV = SaltySDCore_FindSymbolBuiltin("glViewportArrayvNV");
+			Address_weaks.glViewportArrayvOES = SaltySDCore_FindSymbolBuiltin("glViewportArrayvOES");
+			Address_weaks.glViewportIndexedf = SaltySDCore_FindSymbolBuiltin("glViewportIndexedf");
+			Address_weaks.glViewportIndexedfNV = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfNV");
+			Address_weaks.glViewportIndexedfOES = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfOES");
+			Address_weaks.glViewportIndexedfv = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfv");
+			Address_weaks.glViewportIndexedfvNV = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfvNV");
+			Address_weaks.glViewportIndexedfvOES = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfvOES");
 			SaltySDCore_ReplaceImport("nvnBootstrapLoader", (void*)NVN::BootstrapLoader_1);
 			SaltySDCore_ReplaceImport("eglSwapBuffers", (void*)EGL::Swap);
 			SaltySDCore_ReplaceImport("eglSwapInterval", (void*)EGL::Interval);
+			SaltySDCore_ReplaceImport("glViewport", (void*)EGL::Viewport);
+			SaltySDCore_ReplaceImport("glViewportArrayv", (void*)EGL::ViewportArrayv);
+			SaltySDCore_ReplaceImport("glViewportArrayvNV", (void*)EGL::ViewportArrayvNV);
+			SaltySDCore_ReplaceImport("glViewportArrayvOES", (void*)EGL::ViewportArrayvOES);
+			SaltySDCore_ReplaceImport("glViewportIndexedf", (void*)EGL::ViewportIndexedf);
+			SaltySDCore_ReplaceImport("glViewportIndexedfNV", (void*)EGL::ViewportIndexedfNV);
+			SaltySDCore_ReplaceImport("glViewportIndexedfOES", (void*)EGL::ViewportIndexedfOES);
+			SaltySDCore_ReplaceImport("glViewportIndexedfv", (void*)EGL::ViewportIndexedfv);
+			SaltySDCore_ReplaceImport("glViewportIndexedfvNV", (void*)EGL::ViewportIndexedfvNV);
+			SaltySDCore_ReplaceImport("glViewportIndexedfvOES", (void*)EGL::ViewportIndexedfvOES);
 			SaltySDCore_ReplaceImport("vkQueuePresentKHR", (void*)vk::QueuePresent);
 			SaltySDCore_ReplaceImport("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR", (void*)vk::nvSwapchain::QueuePresent);
 			SaltySDCore_ReplaceImport("eglGetProcAddress", (void*)EGL::GetProc);
 			SaltySDCore_ReplaceImport("vkGetInstanceProcAddr", (void*)vk::GetInstanceProcAddr);
+			SaltySDCore_ReplaceImport("vkCmdSetViewport", (void*)vk::CmdSetViewport);
+			SaltySDCore_ReplaceImport("vkCmdSetViewportWithCount", (void*)vk::CmdSetViewportWithCount);
+			if (Address_weaks.vkGetInstanceProcAddr) {
+				//Minecraft is using nn::ro::LookupSymbol to search for Vulkan functions
+				SaltySDCore_ReplaceImport("_ZN2nn2ro12LookupSymbolEPmPKc", (void*)vk::LookupSymbol);
+			}
 
 			char titleid[17];
 			CheckTitleID(&titleid[0]);

@@ -50,6 +50,7 @@ struct NxFpsSharedBlock {
 	struct resolutionCalls renderCalls[8];
 	struct resolutionCalls viewportCalls[8];
 	bool forceOriginalRefreshRate;
+    bool dontForce60InDocked;
 } NX_PACKED;
 
 struct NxFpsSharedBlock* nx_fps = 0;
@@ -823,8 +824,10 @@ Result handleServiceCmd(int cmd)
             SaltySD_printf("SaltySD: loading %s, size 0x%x\n", path, elf_size);
             
             elf_data = malloc(elf_size);
-            
-            fread(elf_data, elf_size, 1, f);
+            if (elf_data) {
+                fread(elf_data, elf_size, 1, f);
+            }
+            else SaltySD_printf("SaltySD: Not enough memory to load elf file! Aborting...\n");
         }
         free(path);
         
@@ -862,7 +865,7 @@ Result handleServiceCmd(int cmd)
         raw->new_addr = new_start;
         raw->new_size = new_size;
         
-        debug_log("SaltySD: new_addr to %lx, %x\n", new_start, ret);
+        if (R_SUCCEEDED(ret)) debug_log("SaltySD: new_addr to %lx, %x\n", new_start, ret);
 
         return 0;
     }
@@ -1412,6 +1415,7 @@ int main(int argc, char *argv[])
         }
         uint32_t temp = 0;
         GetDisplayRefreshRate(&temp, true);
+        if (nx_fps) nx_fps -> dontForce60InDocked = dontForce60InDocked;
 
         // Detected new PID
         if (max != old_max && max > 0x80)
