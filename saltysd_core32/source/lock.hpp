@@ -93,8 +93,6 @@ namespace LOCK {
 
 		if (unsafeCheck) return true;
 
-		if ((address < 0) || (address >= 0x8000000000)) return false;
-
 		Result rc = svcQueryMemory(&memoryinfo, &pageinfo, address);
 		if (R_FAILED(rc)) return false;
 		if ((memoryinfo.perm & Perm_Rw) && ((address - memoryinfo.addr >= 0) && (address - memoryinfo.addr <= memoryinfo.size)))
