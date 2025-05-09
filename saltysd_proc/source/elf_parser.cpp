@@ -151,35 +151,6 @@ uint8_t *Elf_parser::get_memory_map() {
 	return m_mmap_program;
 }
 
-void Elf_parser::load_memory_map() {
-#ifdef ELFPARSE_MMAP
-	int i;
-	struct stat st;
-
-	if ((fd = open(m_program_path.c_str(), O_RDWR, (mode_t)0600)) < 0) {
-		//printf("Err: open\n");
-		exit(-1);
-	}
-	if (fstat(fd, &st) < 0) {
-		//printf("Err: fstat\n");
-		exit(-1);
-	}
-	
-	m_mmap_size = st.st_size;
-	m_mmap_program = static_cast<uint8_t*>(mmap(NULL, m_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-	if (m_mmap_program == MAP_FAILED) {
-		//printf("Err: mmap\n");
-		exit(-1);
-	}
-
-	auto header = (Elf64_Ehdr*)m_mmap_program;
-	if (header->e_ident[EI_CLASS] != ELFCLASS64) {
-		//printf("Only 64-bit files supported\n");
-		exit(1);
-	}
-#endif
-}
-
 std::string Elf_parser::get_section_type(int tt) {
 	if(tt < 0)
 		return "UNKNOWN";

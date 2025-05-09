@@ -29,9 +29,6 @@
 #include <cstdio>
 #include <fcntl.h>	/* O_RDONLY */
 #include <sys/stat.h> /* For the size of the file. , fstat */
-#ifdef ELFPARSE_MMAP
-#include <sys/mman.h> /* mmap, MAP_PRIVATE */
-#endif
 #include <vector>
 #include <elf.h>	  // Elf64_Shdr
 #include <fcntl.h>
@@ -161,21 +158,8 @@ typedef struct {
 
 class Elf_parser {
 	public:
-		Elf_parser(uint8_t* data): m_program_path(""), m_mmap_program(data) {}
-		Elf_parser (std::string &program_path): m_program_path{program_path} {   
-			load_memory_map();
-		}
-		~Elf_parser ()
-		{
-#if ELFPARSE_MMAP
-			if (m_mmap_size)
-			{
-				msync(m_mmap_program, m_mmap_size, MS_SYNC);
-				munmap(m_mmap_program, m_mmap_size);
-				close(fd);
-			}
-#endif
-		}
+		Elf_parser(uint8_t* data): m_mmap_program(data) {}
+		~Elf_parser () {}
 		
 		std::vector<section_t> get_sections();
 		std::vector<segment_t> get_segments();
@@ -186,15 +170,12 @@ class Elf_parser {
 		void relocate_segment(int num, uint64_t new_addr);
 		
 	private:
-		void load_memory_map();
-
 		std::string get_section_type(int tt);
 
 		std::string get_segment_type(uint32_t &seg_type);
 		std::string get_segment_flags(uint32_t &seg_flags);
 
 		int fd;
-		std::string m_program_path; 
 		uint8_t *m_mmap_program;
 		size_t m_mmap_size;
 };

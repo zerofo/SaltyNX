@@ -29,9 +29,6 @@
 #include <cstdio>
 #include <fcntl.h>	/* O_RDONLY */
 #include <sys/stat.h> /* For the size of the file. , fstat */
-#ifdef ELFPARSE_MMAP
-#include <sys/mman.h> /* mmap, MAP_PRIVATE */
-#endif
 #include <vector>
 #include <elf.h>	  // Elf32_Shdr
 #include <fcntl.h>
@@ -155,10 +152,7 @@ typedef struct {
 
 class Elf32_parser {
 	public:
-		Elf32_parser(uint8_t* data): m_program_path(""), m_mmap_program(data) {}
-		Elf32_parser (std::string &program_path): m_program_path{program_path} {   
-			load_memory_map();
-		}
+		Elf32_parser(uint8_t* data): m_mmap_program(data) {}
 		~Elf32_parser ()
 		{
 #if ELFPARSE_MMAP
@@ -180,7 +174,6 @@ class Elf32_parser {
 		void relocate(uint32_t text_addr, uint32_t data_addr, uint32_t read_addr);
 		
 	private:
-		void load_memory_map();
 
 		std::string get_section_type(int tt);
 
@@ -188,7 +181,6 @@ class Elf32_parser {
 		std::string get_segment_flags(uint32_t &seg_flags);
 
 		int fd;
-		std::string m_program_path; 
 		uint8_t *m_mmap_program;
 		size_t m_mmap_size;
 };
