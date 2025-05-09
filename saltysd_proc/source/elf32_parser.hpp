@@ -23,17 +23,9 @@
 #ifndef H_ELF32_PARSER
 #define H_ELF32_PARSER
 
-#include <iostream>
 #include <string>
-#include <cstdlib>
-#include <cstdio>
-#include <fcntl.h>	/* O_RDONLY */
-#include <sys/stat.h> /* For the size of the file. , fstat */
 #include <vector>
 #include <elf.h>	  // Elf32_Shdr
-#include <fcntl.h>
-#include <stdint.h>
-#include <unistd.h>
 
 namespace elf32_parser {
 
@@ -57,55 +49,6 @@ typedef struct {
 	Elf32_Sym* sym;
 	int symbol_num = 0;
 	std::string symbol_name, symbol_section;  
-	
-	
-	std::string get_type_str() {
-		switch(ELF32_ST_TYPE(sym->st_info)) {
-			case 0: return "NOTYPE";
-			case 1: return "OBJECT";
-			case 2: return "FUNC";
-			case 3: return "SECTION";
-			case 4: return "FILE";
-			case 6: return "TLS";
-			case 7: return "NUM";
-			case 10: return "LOOS";
-			case 12: return "HIOS";
-			default: return "UNKNOWN";
-		}
-	}
-
-	std::string get_bind_str() {
-		switch(ELF32_ST_BIND(sym->st_info)) {
-			case 0: return "LOCAL";
-			case 1: return "GLOBAL";
-			case 2: return "WEAK";
-			case 3: return "NUM";
-			case 10: return "UNIQUE";
-			case 12: return "HIOS";
-			case 13: return "LOPROC";
-			default: return "UNKNOWN";
-		}
-	}
-
-	std::string get_visibility_str() {
-		switch(ELF32_ST_VISIBILITY(sym->st_other)) {
-			case 0: return "DEFAULT";
-			case 1: return "INTERNAL";
-			case 2: return "HIDDEN";
-			case 3: return "PROTECTED";
-			default: return "UNKNOWN";
-		}
-	}
-
-	std::string get_index_str() {
-		switch(sym->st_shndx) {
-			case SHN_ABS: return "ABS";
-			case SHN_COMMON: return "COM";
-			case SHN_UNDEF: return "UND";
-			case SHN_XINDEX: return "COM";
-			default: return std::to_string(sym->st_shndx);
-		}
-	}
 
 } symbol_t;
 
