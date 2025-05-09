@@ -88,8 +88,6 @@ __nx_mod0:
     .word  _DYNAMIC             - __nx_mod0
     .word  __bss_start__        - __nx_mod0
     .word  __bss_end__          - __nx_mod0
-    .word  __eh_frame_hdr_start - __nx_mod0
-    .word  __eh_frame_hdr_end   - __nx_mod0
     .word  0 // "offset to runtime-generated module object" (neither needed, used nor supported in homebrew)
 
     // MOD0 extensions for homebrew
