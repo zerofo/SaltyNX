@@ -157,24 +157,24 @@ void Elf_parser::load_memory_map() {
 	struct stat st;
 
 	if ((fd = open(m_program_path.c_str(), O_RDWR, (mode_t)0600)) < 0) {
-		printf("Err: open\n");
+		//printf("Err: open\n");
 		exit(-1);
 	}
 	if (fstat(fd, &st) < 0) {
-		printf("Err: fstat\n");
+		//printf("Err: fstat\n");
 		exit(-1);
 	}
 	
 	m_mmap_size = st.st_size;
 	m_mmap_program = static_cast<uint8_t*>(mmap(NULL, m_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 	if (m_mmap_program == MAP_FAILED) {
-		printf("Err: mmap\n");
+		//printf("Err: mmap\n");
 		exit(-1);
 	}
 
 	auto header = (Elf64_Ehdr*)m_mmap_program;
 	if (header->e_ident[EI_CLASS] != ELFCLASS64) {
-		printf("Only 64-bit files supported\n");
+		//printf("Only 64-bit files supported\n");
 		exit(1);
 	}
 #endif
@@ -319,7 +319,7 @@ void Elf_parser::relocate_segment(int num, uint64_t new_addr)
 			uint32_t page_lowerpart = pages >> 2;
 			uint32_t page_upperpart = pages & 3;
 			
-			printf("%x %x\n", page_lowerpart, page_upperpart);
+			//printf("%x %x\n", page_lowerpart, page_upperpart);
 
 			*(uint32_t*)(rel_sec.data + rel.rela->r_offset - rel_sec.shdr->sh_addr) &= ~0x607FFFE0;
 			*(uint32_t*)(rel_sec.data + rel.rela->r_offset - rel_sec.shdr->sh_addr) |= (page_lowerpart << 5) & 0x7FFFE0;
