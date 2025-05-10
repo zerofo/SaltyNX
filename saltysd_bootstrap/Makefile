@@ -43,7 +43,7 @@ ARCH	:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -s
 
 ASFLAGS :=  $(ARCH)
 
-CFLAGS	:=	-g -Wall -O2 \
+CFLAGS	:=	-g -Wall -O3 \
 			-ffast-math \
 			$(ARCH) $(DEFINES)
 
@@ -52,7 +52,7 @@ CFLAGS	+=	$(INCLUDE) -DSWITCH
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++23
 
 ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-T $(TOPDIR)/rel.ld -z text -z nodynamic-undefined-weak --build-id=sha1 -g --emit-relocs
+LDFLAGS	=	-z max-page-size=0x1000 -T $(TOPDIR)/rel.ld -z text -z nodynamic-undefined-weak --build-id=sha1 -g --emit-relocs
 
 LIBS	:= -lnx_min
 
