@@ -74,7 +74,6 @@ extern "C" {
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 	typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
 	typedef u64 (*eglGetProcAddress_0)(const char* eglName);
-	typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
 	typedef void* (*nvnCommandBufferSetRenderTargets_0)(const void* cmdBuf, int numTextures, const NVNTexture** texture, const NVNTextureView** textureView, const NVNTexture* depth, const NVNTextureView* depthView);
 	typedef void* (*nvnCommandBufferSetViewport_0)(const void* cmdBuf, int x, int y, int width, int height);
 	typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, const NVNViewport* viewports);
@@ -108,7 +107,6 @@ struct {
 	uintptr_t ConvertToTimeSpan;
 	uintptr_t GetSystemTick;
 	uintptr_t eglGetProcAddress;
-	uintptr_t GetOperationMode;
 	uintptr_t ReferSymbol;
 	uintptr_t vkGetInstanceProcAddr;
 	uintptr_t LookupSymbol;
@@ -125,6 +123,8 @@ ptrdiff_t SharedMemoryOffset = 1234;
 uint8_t* configBuffer = 0;
 size_t configSize = 0;
 Result configRC = 1;
+
+static uint32_t* sharedOperationMode = 0;
 
 Result readConfig(const char* path, uint8_t** output_buffer) {
 	FILE* patch_file = SaltySDCore_fopen(path, "rb");
@@ -290,15 +290,13 @@ namespace NX_FPS_Math {
 	uint8_t range = 0;
 	
 	bool FPSlock_delayed = false;
-	u8 OpMode = 0;
 	bool old_force = false;
 	uint32_t new_fpslock = 0;
 
 	void PreFrame() {
 		new_fpslock = (LOCK::overwriteRefreshRate ? LOCK::overwriteRefreshRate : (Shared -> FPSlocked));
-		OpMode = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
 		if (old_force != (Shared -> forceOriginalRefreshRate)) {
-			if (OpMode == 1 && !(Shared -> dontForce60InDocked))
+			if (*sharedOperationMode == 1 && !(Shared -> dontForce60InDocked))
 				svcSleepThread(LOCK::DockedRefreshRateDelay);
 			old_force = (Shared -> forceOriginalRefreshRate);
 		}
@@ -341,7 +339,7 @@ namespace NX_FPS_Math {
 		FPS_temp++;
 		uint64_t deltatick = endtick - starttick;
 		uint64_t deltatick2 = endtick - starttick2;
-		if (deltatick2 > (systemtickfrequency / ((OpMode == 1) ? 30 : 1))) {
+		if (deltatick2 > (systemtickfrequency / ((*sharedOperationMode == 1) ? 30 : 1))) {
 			starttick2 = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
 			LOCK::overwriteRefreshRate = 0;
 			if (!configRC && FPSlock) {
@@ -1016,7 +1014,8 @@ namespace NVN {
 
 extern "C" {
 
-	void NX_FPS(SharedMemory* _sharedmemory) {
+	void NX_FPS(SharedMemory* _sharedmemory, uint32_t* _sharedOperationMode) {
+		sharedOperationMode = _sharedOperationMode;
 		SaltySDCore_printf("NX-FPS: alive\n");
 		LOCK::mappings.main_start = getMainAddress();
 		SaltySDCore_printf("NX-FPS: found main at: 0x%lX\n", LOCK::mappings.main_start);
@@ -1036,7 +1035,6 @@ extern "C" {
 			Address_weaks.ConvertToTimeSpan = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os17ConvertToTimeSpanENS0_4TickE");
 			Address_weaks.GetSystemTick = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os13GetSystemTickEv");
 			Address_weaks.eglGetProcAddress = SaltySDCore_FindSymbolBuiltin("eglGetProcAddress");
-			Address_weaks.GetOperationMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
 			Address_weaks.vkGetInstanceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetInstanceProcAddr");
 			Address_weaks.LookupSymbol = SaltySDCore_FindSymbolBuiltin("_ZN2nn2ro12LookupSymbolEPmPKc");
 			Address_weaks.vkCmdSetViewport = SaltySDCore_FindSymbolBuiltin("vkCmdSetViewport");

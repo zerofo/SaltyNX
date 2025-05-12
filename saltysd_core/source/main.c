@@ -34,6 +34,8 @@ ThreadVars vars_mine;
 
 uint64_t tid = 0;
 
+static uint32_t sharedOperationMode = 0;
+
 void __libnx_init(void* ctx, Handle main_thread, void* saved_lr)
 {
 	extern char* fake_heap_start;
@@ -410,9 +412,9 @@ int main(int argc, char *argv[])
 		shmemLoadRemote(&_sharedmemory, remoteSharedMemory, 0x1000, Perm_Rw);
 		shmemMapRc = shmemMap(&_sharedmemory);
 		if (R_SUCCEEDED(shmemMapRc)) {
-			NX_FPS(&_sharedmemory);
+			NX_FPS(&_sharedmemory, &sharedOperationMode);
 
-			ReverseNX(&_sharedmemory);
+			ReverseNX(&_sharedmemory, &sharedOperationMode);
 
 			if (SaltySDCore_isRelrAvailable()) {
 				SaltySDCore_printf("SaltySD Core: Game is using RELR. Applying hacky solution.\n", ret);
