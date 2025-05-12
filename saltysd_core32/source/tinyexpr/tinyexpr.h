@@ -23,7 +23,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-//Modified by MasaGratoR
 #ifndef TINYEXPR_H
 #define TINYEXPR_H
 
@@ -37,7 +36,7 @@ extern "C" {
 typedef struct te_expr {
     int type;
     union {double value; const double *bound; const void *function;};
-    void *parameters[];
+    void *parameters[1];
 } te_expr;
 
 
