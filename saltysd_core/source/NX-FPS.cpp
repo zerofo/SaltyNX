@@ -32,10 +32,6 @@ typedef int NVNtextureTarget;
 typedef int NVNformat;
 typedef int NVNmemoryPoolFlags;
 
-NVNWindow* m_nvnWindow = 0;
-NVNDevice* m_nvnDevice = 0;
-NVNTexture* framebufferTextures[4];
-
 struct NVNViewport {
 	float x;
 	float y;
@@ -43,7 +39,7 @@ struct NVNViewport {
 	float height;
 };
 
-struct VkViewport{
+struct VkViewport {
 	float    x;
 	float    y;
 	float    width;
@@ -381,7 +377,7 @@ namespace NX_FPS_Math {
 
 	}
 
-		template <typename T> void addResToViewports(T m_width, T m_height) {
+	template <typename T> void addResToViewports(T m_width, T m_height) {
 		T ratio = (m_width * 10) / m_height;
 		if (ratio >= (T)12 && ratio <= (T)18) {
 			uint16_t width = (uint16_t)m_width;
@@ -762,7 +758,6 @@ namespace EGL {
 
 namespace NVN {
 	bool WindowInitialize(const NVNWindow* nvnWindow, struct nvnWindowBuilder* windowBuilder) {
-		m_nvnWindow = (NVNWindow*)nvnWindow;
 		if (!(Shared -> Buffers)) {
 			(Shared -> Buffers) = windowBuilder -> numBufferedFrames;
 			if ((Shared -> SetBuffers) >= 2 && (Shared -> SetBuffers) <= windowBuilder -> numBufferedFrames) {
@@ -775,9 +770,6 @@ namespace NVN {
 
 	void WindowBuilderSetTextures(const nvnWindowBuilder* nvnWindowBuilder, int numBufferedFrames, const NVNTexture** nvnTextures) {
 		(Shared -> Buffers) = numBufferedFrames;
-		for (int i = 0; i < numBufferedFrames; i++) {
-			framebufferTextures[i] = (NVNTexture*)nvnTextures[i];
-		}
 		if ((Shared -> SetBuffers) >= 2 && (Shared -> SetBuffers) <= numBufferedFrames) {
 			numBufferedFrames = (Shared -> SetBuffers);
 		}
@@ -954,7 +946,6 @@ namespace NVN {
 
 	uintptr_t GetProcAddress0 (NVNDevice* nvnDevice, const char* nvnFunction) {
 		uintptr_t address = ((GetProcAddress)(Ptrs.nvnDeviceGetProcAddress))(nvnDevice, nvnFunction);
-		m_nvnDevice = nvnDevice;
 		if (!strcmp("nvnDeviceGetProcAddress", nvnFunction))
 			return (uintptr_t)&NVN::GetProcAddress0;
 		else if (!strcmp("nvnQueuePresentTexture", nvnFunction)) {
