@@ -367,13 +367,19 @@ void QueryMemoryInfo(void* memoryinfo) {
 	return ((nnosQueryMemoryInfo)(Address_weak_QueryMemoryInfo))(memoryinfo);
 }
 
+typedef double (*strtod_0)(const char* str, char** endptr);
+uint64_t strtod_ptr = 0;
+
+double strtod(const char* str, char** endptr) {
+	return ((strtod_0)(strtod_ptr))(str, endptr);
+}
+
 int main(int argc, char *argv[])
 {
 	Result ret;
 
-	debug_log("SaltySD Core: waddup\n");
 	SaltySDCore_RegisterExistingModules();
-	
+	strtod_ptr = SaltySDCore_FindSymbolBuiltin("strtod");
 	SaltySD_Init();
 
 	SaltySDCore_printf("SaltySD Core: restoring code...\n");
