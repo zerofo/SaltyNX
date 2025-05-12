@@ -64,7 +64,6 @@ extern "C" {
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 	typedef void (*_ZN2nn2os13GetSystemTickEv_0)(u64* output);
 	typedef u32 (*eglGetProcAddress_0)(const char* eglName);
-	typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
 	typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
 	typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
 	typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, NVNViewport* viewports);
@@ -95,7 +94,6 @@ struct {
 	uintptr_t ConvertToTimeSpan;
 	uintptr_t GetSystemTick;
 	uintptr_t eglGetProcAddress;
-	uintptr_t GetOperationMode;
 	uintptr_t ReferSymbol;
 	uintptr_t vkGetInstanceProcAddr;
 } Address_weaks;
@@ -109,6 +107,8 @@ ptrdiff_t SharedMemoryOffset = 1234;
 uint8_t* configBuffer = 0;
 size_t configSize = 0;
 Result configRC = 1;
+
+static uint32_t* sharedOperationMode = 0;
 
 Result readConfig(const char* path, uint8_t** output_buffer) {
 	FILE* patch_file = SaltySDCore_fopen(path, "rb");
@@ -203,7 +203,7 @@ struct {
 } Stats;
 
 static uint32_t systemtickfrequency = 19200000;
-typedef void (*nvnQueuePresentTexture_0)(const void* _this, const void* unk2_1, const void* unk3_1);
+typedef void (*nvnQueuePresentTexture_0)(const void* _this, const void* unk2_1, const int index);
 typedef uintptr_t (*GetProcAddress)(const void* unk1_a, const char * nvnFunction_a);
 
 bool changeFPS = false;
@@ -257,13 +257,11 @@ namespace NX_FPS_Math {
 	bool FPSlock_delayed = false;
 	bool old_force = false;
 	int32_t new_fpslock = 0;
-	u8 OpMode = 0;
 
 	void PreFrame() {
 		new_fpslock = (LOCK::overwriteRefreshRate ? LOCK::overwriteRefreshRate : (Shared -> FPSlocked));
-		OpMode = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
 		if (old_force != (Shared -> forceOriginalRefreshRate)) {
-			if (OpMode == 1 && !(Shared -> dontForce60InDocked))
+			if (*sharedOperationMode == 1 && !(Shared -> dontForce60InDocked))
 				svcSleepThread(LOCK::DockedRefreshRateDelay);
 			old_force = (Shared -> forceOriginalRefreshRate);
 		}
@@ -310,7 +308,7 @@ namespace NX_FPS_Math {
 		Shared -> FPSticks[FPStickItr++] = framedelta;
 		FPStickItr %= 10;
 
-		if (deltatick2 > (systemtickfrequency / ((OpMode == 1) ? 30 : 1))) {
+		if (deltatick2 > (systemtickfrequency / ((*sharedOperationMode == 1) ? 30 : 1))) {
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&starttick2);
 			if (!configRC && FPSlock) {
 				LOCK::applyPatch(configBuffer, FPSlock, (Shared -> displaySync));
@@ -772,7 +770,7 @@ namespace NVN {
 
 	//This function accepts which frame pushed to nvnWindowBuilderSetTexture should be shown on screen.
 	//It pushes that frame into queue
-	void PresentTexture(const void* _this, const NVNWindow* nvnWindow, const void* unk3) {
+	void PresentTexture(const void* _this, const NVNWindow* nvnWindow, const int index) {
 
 		if (!NX_FPS_Math::starttick) {
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&NX_FPS_Math::starttick);
@@ -780,11 +778,13 @@ namespace NVN {
 			(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 		}
 		
-		NX_FPS_Math::PreFrame();
-		
-		((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, unk3);
-		
-		NX_FPS_Math::PostFrame();
+		static int last_index = 0;
+
+		if (last_index != index) NX_FPS_Math::PreFrame();
+		((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, index);
+		if (last_index != index) NX_FPS_Math::PostFrame();
+		last_index = index;
+
 		(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 
 		if ((Shared -> FPSlocked) == 0 && LOCK::overwriteRefreshRate == 0) {
@@ -969,7 +969,8 @@ namespace NVN {
 
 extern "C" {
 
-	void NX_FPS(SharedMemory* _sharedmemory) {
+	void NX_FPS(SharedMemory* _sharedmemory, uint32_t* _sharedOperationMode) {
+		sharedOperationMode = _sharedOperationMode;
 		SaltySDCore_printf("NX-FPS: alive\n");
 		LOCK::mappings.main_start = getMainAddress();
 		SaltySDCore_printf("NX-FPS: found main at: 0x%lX\n", LOCK::mappings.main_start);
@@ -989,7 +990,6 @@ extern "C" {
 			Address_weaks.ConvertToTimeSpan = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os17ConvertToTimeSpanENS0_4TickE");
 			Address_weaks.GetSystemTick = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os13GetSystemTickEv");
 			Address_weaks.eglGetProcAddress = SaltySDCore_FindSymbolBuiltin("eglGetProcAddress");
-			Address_weaks.GetOperationMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
 			Address_weaks.vkGetInstanceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetInstanceProcAddr");
 			Address_weaks.glViewport = SaltySDCore_FindSymbolBuiltin("glViewport");
 			Address_weaks.glViewportArrayvNV = SaltySDCore_FindSymbolBuiltin("glViewportArrayvNV");
@@ -1022,7 +1022,7 @@ extern "C" {
 			uint64_t titleid = 0;
 			svcGetInfo(&titleid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
 			char path[128];
-			sprintf(path, "sdmc:/SaltySD/plugins/FPSLocker/%016llX.dat", titleid);
+			snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/%016llX.dat", titleid);
 			FILE* file_dat = SaltySDCore_fopen(path, "rb");
 			if (file_dat) {
 				uint8_t temp = 0;
@@ -1049,7 +1049,7 @@ extern "C" {
 			}
 			else {
 				SaltySDCore_printf("NX-FPS: BID: %016llX\n", buildid);
-				sprintf(path, "sdmc:/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
+				snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
 				FILE* patch_file = SaltySDCore_fopen(path, "rb");
 				if (patch_file) {
 					SaltySDCore_fclose(patch_file);

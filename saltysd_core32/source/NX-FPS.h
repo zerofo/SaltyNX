@@ -1,1 +1,1 @@
-void NX_FPS(SharedMemory* _sharedmemory);
+void NX_FPS(SharedMemory* _sharedmemory, uint32_t* _sharedOperationMode);

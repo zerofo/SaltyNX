@@ -65,6 +65,8 @@ struct Shared {
 
 Shared* ReverseNX_RT;
 
+static uint32_t *sharedOperationMode = 0;
+
 ReverseNX_state loadSave() {
 	char path[128];
     uint64_t titid = 0;
@@ -162,13 +164,15 @@ int PopNotificationMessage() {
 }
 
 uint32_t GetPerformanceMode() {
-	if ((ReverseNX_RT->def)) (ReverseNX_RT->isDocked) = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
+	*sharedOperationMode = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
+	if ((ReverseNX_RT->def)) (ReverseNX_RT->isDocked) = *sharedOperationMode;
 	
 	return (ReverseNX_RT->isDocked);
 }
 
 uint8_t GetOperationMode() {
-	if ((ReverseNX_RT->def)) (ReverseNX_RT->isDocked) = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
+	*sharedOperationMode = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
+	if ((ReverseNX_RT->def)) (ReverseNX_RT->isDocked) = *sharedOperationMode;
 	
 	return (ReverseNX_RT->isDocked);
 }
@@ -285,7 +289,8 @@ void* WaitAny(void* MultiWaitType) {
 }
 
 extern "C" {
-	void ReverseNX(SharedMemory* _sharedmemory) {
+	void ReverseNX(SharedMemory* _sharedmemory, uint32_t* _sharedOperationMode) {
+		sharedOperationMode = _sharedOperationMode;
 		SaltySDCore_printf("ReverseNX: alive\n");
 		Result ret = SaltySD_CheckIfSharedMemoryAvailable(&SharedMemoryOffset2, 7);
 		SaltySDCore_printf("ReverseNX: SharedMemory ret: 0x%X\n", ret);
