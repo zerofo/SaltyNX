@@ -347,10 +347,10 @@ namespace NX_FPS_Math {
 	}
 
 		template <typename T> void addResToViewports(T m_width, T m_height) {
-		uint16_t width = (uint16_t)(m_width);
-		uint16_t height = (uint16_t)(m_height);
-		int ratio = (width * 10) / height;
-		if (ratio >= 12 && ratio <= 18) {
+		T ratio = (m_width * 10) / m_height;
+		if (ratio >= (T)12 && ratio <= (T)18) {
+			uint16_t width = (uint16_t)m_width;
+			uint16_t height = (uint16_t)m_height;
 			for (size_t i = 0; i < 8; i++) {
 				if (width == m_resolutionViewportCalls[i].width) {
 					m_resolutionViewportCalls[i].calls++;
@@ -367,10 +367,10 @@ namespace NX_FPS_Math {
 	}
 
 	template <typename T> void addResToRender(T m_width, T m_height) {
-		uint16_t width = (uint16_t)(m_width);
-		uint16_t height = (uint16_t)(m_height);
-		int ratio = (width * 10) / height;
-		if (ratio >= 12 && ratio <= 18) {
+		T ratio = (m_width * 10) / m_height;
+		if (ratio >= (T)12 && ratio <= (T)18) {
+			uint16_t width = (uint16_t)m_width;
+			uint16_t height = (uint16_t)m_height;
 			for (size_t i = 0; i < 8; i++) {
 				if (width == m_resolutionRenderCalls[i].width) {
 					m_resolutionRenderCalls[i].calls++;
