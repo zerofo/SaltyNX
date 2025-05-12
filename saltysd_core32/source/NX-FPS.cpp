@@ -345,6 +345,46 @@ namespace NX_FPS_Math {
 			memset(&m_resolutionViewportCalls, 0, sizeof(m_resolutionViewportCalls));
 		}
 	}
+
+		template <typename T> void addResToViewports(T m_width, T m_height) {
+		uint16_t width = (uint16_t)(m_width);
+		uint16_t height = (uint16_t)(m_height);
+		int ratio = (width * 10) / height;
+		if (ratio >= 12 && ratio <= 18) {
+			for (size_t i = 0; i < 8; i++) {
+				if (width == m_resolutionViewportCalls[i].width) {
+					m_resolutionViewportCalls[i].calls++;
+					break;
+				}
+				if (m_resolutionViewportCalls[i].width == 0) {
+					m_resolutionViewportCalls[i].width = width;
+					m_resolutionViewportCalls[i].height = height;
+					m_resolutionViewportCalls[i].calls = 1;
+					break;
+				}
+			}			
+		}		
+	}
+
+	template <typename T> void addResToRender(T m_width, T m_height) {
+		uint16_t width = (uint16_t)(m_width);
+		uint16_t height = (uint16_t)(m_height);
+		int ratio = (width * 10) / height;
+		if (ratio >= 12 && ratio <= 18) {
+			for (size_t i = 0; i < 8; i++) {
+				if (width == m_resolutionRenderCalls[i].width) {
+					m_resolutionRenderCalls[i].calls++;
+					break;
+				}
+				if (m_resolutionRenderCalls[i].width == 0) {
+					m_resolutionRenderCalls[i].width = width;
+					m_resolutionRenderCalls[i].height = height;
+					m_resolutionRenderCalls[i].calls = 1;
+					break;
+				}
+			}			
+		}		
+	}
 }
 
 namespace vk {
@@ -526,22 +566,7 @@ namespace EGL {
 
 	void Viewport(int x, int y, uint width, uint height) {
 		if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
-			int ratio = (width * 10) / height;
-			if (ratio >= 12 && ratio <= 18) {
-				//Dynamic Resolution is always the second value passed
-				for (size_t i = 0; i < 8; i++) {
-					if (width == m_resolutionViewportCalls[i].width) {
-						m_resolutionViewportCalls[i].calls++;
-						break;
-					}
-					if (m_resolutionViewportCalls[i].width == 0) {
-						m_resolutionViewportCalls[i].width = width;
-						m_resolutionViewportCalls[i].height = height;
-						m_resolutionViewportCalls[i].calls = 1;
-						break;
-					}
-				}			
-			}
+			NX_FPS_Math::addResToViewports(width, height);
 		}
 		return ((glViewport_0)(Address_weaks.glViewport))(x, y, width, height);
 	}
@@ -549,23 +574,7 @@ namespace EGL {
 	void ViewportArrayv(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
 		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportArrayv_0)(Address_weaks.glViewportArrayv))(firstViewport, viewportCount, pViewports);
@@ -574,23 +583,7 @@ namespace EGL {
 	void ViewportArrayvNV(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
 		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportArrayvNV_0)(Address_weaks.glViewportArrayvNV))(firstViewport, viewportCount, pViewports);
@@ -599,23 +592,7 @@ namespace EGL {
 	void ViewportArrayvOES(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
 		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportArrayvOES_0)(Address_weaks.glViewportArrayvOES))(firstViewport, viewportCount, pViewports);
@@ -623,22 +600,7 @@ namespace EGL {
 
 	void ViewportIndexedfNV(uint index, float x, float y, float width, float height) {
 		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			int ratio = (width * 10) / height;
-			if (ratio >= 12 && ratio <= 18) {
-				//Dynamic Resolution is always the second value passed
-				for (size_t i = 0; i < 8; i++) {
-					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
-						m_resolutionViewportCalls[i].calls++;
-						break;
-					}
-					if (m_resolutionViewportCalls[i].width == 0) {
-						m_resolutionViewportCalls[i].width = (uint16_t)width;
-						m_resolutionViewportCalls[i].height = (uint16_t)height;
-						m_resolutionViewportCalls[i].calls = 1;
-						break;
-					}
-				}			
-			}
+			NX_FPS_Math::addResToViewports(width, height);
 		}
 		return ((glViewportIndexedfNV_0)(Address_weaks.glViewportIndexedfNV))(index, x, y, width, height);
 	}
@@ -646,23 +608,7 @@ namespace EGL {
 	void ViewportIndexedfvNV(uint i, const glViewportArray* pViewports) {
 		if (resolutionLookup) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportIndexedfvNV_0)(Address_weaks.glViewportIndexedfvNV))(i, pViewports);
@@ -670,22 +616,7 @@ namespace EGL {
 
 	void ViewportIndexedf(uint index, float x, float y, float width, float height) {
 		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			int ratio = (width * 10) / height;
-			if (ratio >= 12 && ratio <= 18) {
-				//Dynamic Resolution is always the second value passed
-				for (size_t i = 0; i < 8; i++) {
-					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
-						m_resolutionViewportCalls[i].calls++;
-						break;
-					}
-					if (m_resolutionViewportCalls[i].width == 0) {
-						m_resolutionViewportCalls[i].width = (uint16_t)width;
-						m_resolutionViewportCalls[i].height = (uint16_t)height;
-						m_resolutionViewportCalls[i].calls = 1;
-						break;
-					}
-				}			
-			}
+			NX_FPS_Math::addResToViewports(width, height);
 		}
 		return ((glViewportIndexedf_0)(Address_weaks.glViewportIndexedf))(index, x, y, width, height);
 	}
@@ -693,23 +624,7 @@ namespace EGL {
 	void ViewportIndexedfv(uint i, const glViewportArray* pViewports) {
 		if (resolutionLookup) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportIndexedfv_0)(Address_weaks.glViewportIndexedfv))(i, pViewports);
@@ -717,22 +632,7 @@ namespace EGL {
 
 	void ViewportIndexedfOES(uint index, float x, float y, float width, float height) {
 		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			int ratio = (width * 10) / height;
-			if (ratio >= 12 && ratio <= 18) {
-				//Dynamic Resolution is always the second value passed
-				for (size_t i = 0; i < 8; i++) {
-					if ((uint16_t)width == m_resolutionViewportCalls[i].width) {
-						m_resolutionViewportCalls[i].calls++;
-						break;
-					}
-					if (m_resolutionViewportCalls[i].width == 0) {
-						m_resolutionViewportCalls[i].width = (uint16_t)width;
-						m_resolutionViewportCalls[i].height = (uint16_t)height;
-						m_resolutionViewportCalls[i].calls = 1;
-						break;
-					}
-				}			
-			}
+			NX_FPS_Math::addResToViewports(width, height);
 		}
 		return ((glViewportIndexedfOES_0)(Address_weaks.glViewportIndexedfOES))(index, x, y, width, height);
 	}
@@ -740,23 +640,7 @@ namespace EGL {
 	void ViewportIndexedfvOES(uint i, const glViewportArray* pViewports) {
 		if (resolutionLookup) {
 			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(pViewports[i].width);
-				uint16_t height = (uint16_t)(pViewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
 			}
 		}
 		return ((glViewportIndexedfvOES_0)(Address_weaks.glViewportIndexedfvOES))(i, pViewports);
@@ -992,24 +876,7 @@ namespace NVN {
 	void* CommandBufferSetViewports(nvnCommandBuffer* cmdBuf, int start, int count, NVNViewport* viewports) {
 		if (resolutionLookup) for (int i = start; i < start+count; i++) {
 			if (viewports[i].height > 1.f && viewports[i].width > 1.f && viewports[i].x == 0.f && viewports[i].y == 0.f) {
-				uint16_t width = (uint16_t)(viewports[i].width);
-				uint16_t height = (uint16_t)(viewports[i].height);
-				int ratio = (width * 10) / height;
-				if (ratio >= 12 && ratio <= 18) {
-					//Dynamic Resolution is always the second value passed
-					for (size_t i = 0; i < 8; i++) {
-						if (width == m_resolutionViewportCalls[i].width) {
-							m_resolutionViewportCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionViewportCalls[i].width == 0) {
-							m_resolutionViewportCalls[i].width = width;
-							m_resolutionViewportCalls[i].height = height;
-							m_resolutionViewportCalls[i].calls = 1;
-							break;
-						}
-					}			
-				}
+				NX_FPS_Math::addResToViewports(viewports[i].width, viewports[i].height);
 			}
 		}
 		return ((nvnCommandBufferSetViewports_0)(Ptrs.nvnCommandBufferSetViewports))(cmdBuf, start, count, viewports);
@@ -1018,22 +885,7 @@ namespace NVN {
 	//Sets resolutions and start point of passed to command buffer textures, they cannot be bigger than texture are originally
 	void* CommandBufferSetViewport(nvnCommandBuffer* cmdBuf, int x, int y, int width, int height) {
 		if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
-			int ratio = (width * 10) / height;
-			if (ratio >= 12 && ratio <= 18) {
-				//Dynamic Resolution is always the second value passed
-				for (size_t i = 0; i < 8; i++) {
-					if (width == m_resolutionViewportCalls[i].width) {
-						m_resolutionViewportCalls[i].calls++;
-						break;
-					}
-					if (m_resolutionViewportCalls[i].width == 0) {
-						m_resolutionViewportCalls[i].width = width;
-						m_resolutionViewportCalls[i].height = height;
-						m_resolutionViewportCalls[i].calls = 1;
-						break;
-					}
-				}			
-			}
+			NX_FPS_Math::addResToViewports(width, height);
 		}
 		return ((nvnCommandBufferSetViewport_0)(Ptrs.nvnCommandBufferSetViewport))(cmdBuf, x, y, width, height);
 	}
@@ -1044,25 +896,7 @@ namespace NVN {
 			uint16_t depth_height = ((nvnTextureGetHeight_0)(Ptrs.nvnTextureGetHeight))(depthTexture);
 			int depth_format = ((nvnTextureGetFormat_0)(Ptrs.nvnTextureGetFormat))(depthTexture);
 			if (depth_width > 1 && depth_height > 1 && (depth_format >= 51 && depth_format <= 54)) {
-				bool found = false;
-				int ratio = ((depth_width * 10) / (depth_height));
-				if (ratio < 12 || ratio > 18) {
-					found = true;
-				}
-				if (!found) {
-					for (size_t i = 0; i < 8; i++) {
-						if (depth_width == m_resolutionRenderCalls[i].width) {
-							m_resolutionRenderCalls[i].calls++;
-							break;
-						}
-						if (m_resolutionRenderCalls[i].width == 0) {
-							m_resolutionRenderCalls[i].width = depth_width;
-							m_resolutionRenderCalls[i].height = depth_height;
-							m_resolutionRenderCalls[i].calls = 1;
-							break;
-						}
-					}
-				}
+				NX_FPS_Math::addResToRender(depth_width, depth_height);
 			}
 		}
 		return ((nvnCommandBufferSetRenderTargets_0)(Ptrs.nvnCommandBufferSetRenderTargets))(cmdBuf, numTextures, texture, textureView, depthTexture, depthView);
