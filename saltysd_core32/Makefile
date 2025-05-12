@@ -43,7 +43,7 @@ ARCH_DEBUG		:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE -fno-plt
 ARCH			:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE -fno-plt -s
 
 CFLAGS			:=	-Wall -Wno-pointer-to-int-cast -O2 \
-					-ffast-math \
+					-ffast-math -ffunction-sections \
 					$(ARCH) $(DEFINES)
 
 CFLAGS			+=	$(INCLUDE) -DSWITCH
