@@ -57,7 +57,7 @@ struct glViewportArray {
 
 extern "C" {
 	typedef u64 (*nvnBootstrapLoader_0)(const char * nvnName);
-	typedef int (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
+	typedef bool (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
 	typedef int (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
 	typedef void (*glViewport_0)(int x, int y, uint width, uint height);
 	typedef void (*glViewportArrayv_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
@@ -69,8 +69,8 @@ extern "C" {
 	typedef void (*glViewportIndexedfvNV_0)(uint index, const glViewportArray* pViewports);
 	typedef void (*glViewportIndexedfOES_0)(uint index, float x, float y, float width, float height);
 	typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pViewports);
-	typedef u32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
-	typedef u32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
+	typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
+	typedef s32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 	typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
 	typedef u64 (*eglGetProcAddress_0)(const char* eglName);
@@ -416,10 +416,12 @@ namespace NX_FPS_Math {
 	}
 }
 
+#define VK_SUCCESS 0
+
 namespace vk {
 
 	namespace nvSwapchain { 
-	uint32_t QueuePresent (const void* VkQueue_T, const void* VkPresentInfoKHR) {
+	int32_t QueuePresent (const void* VkQueue_T, const void* VkPresentInfoKHR) {
 
 		if (!NX_FPS_Math::starttick) {
 			(Shared -> API) = 3;
@@ -429,8 +431,8 @@ namespace vk {
 
 		NX_FPS_Math::PreFrame();
 
-		uint32_t vulkanResult = ((_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(Address_weaks.nvSwapchainQueuePresentKHR))(VkQueue_T, VkPresentInfoKHR);
-		NX_FPS_Math::PostFrame();
+		int32_t vulkanResult = ((_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(Address_weaks.nvSwapchainQueuePresentKHR))(VkQueue_T, VkPresentInfoKHR);
+		if (vulkanResult >= 0) NX_FPS_Math::PostFrame();
 
 		if (!NX_FPS_Math::new_fpslock) {
 			NX_FPS_Math::FPStiming = 0;
@@ -448,7 +450,7 @@ namespace vk {
 		return vulkanResult;
 	}}
 
-	uint32_t QueuePresent (const void* VkQueue, const void* VkPresentInfoKHR) {
+	int32_t QueuePresent (const void* VkQueue, const void* VkPresentInfoKHR) {
 		
 		if (!NX_FPS_Math::starttick) {
 			(Shared -> API) = 3;
@@ -457,8 +459,8 @@ namespace vk {
 		}
 
 		NX_FPS_Math::PreFrame();
-		uint32_t vulkanResult = ((vkQueuePresentKHR_0)(Address_weaks.vkQueuePresentKHR))(VkQueue, VkPresentInfoKHR);
-		NX_FPS_Math::PostFrame();
+		int32_t vulkanResult = ((vkQueuePresentKHR_0)(Address_weaks.vkQueuePresentKHR))(VkQueue, VkPresentInfoKHR);
+		if (vulkanResult >= 0) NX_FPS_Math::PostFrame();
 
 		if (!NX_FPS_Math::new_fpslock) {
 			NX_FPS_Math::FPStiming = 0;
@@ -560,7 +562,7 @@ namespace EGL {
 		return result;
 	}
 
-	int Swap (const void* EGLDisplay, const void* EGLSurface) {
+	bool Swap (const void* EGLDisplay, const void* EGLSurface) {
 
 		if (!NX_FPS_Math::starttick) {
 			(Shared -> API) = 2;
@@ -570,8 +572,9 @@ namespace EGL {
 
 		NX_FPS_Math::PreFrame();
 		
-		int result = ((eglSwapBuffers_0)(Address_weaks.eglSwapBuffers))(EGLDisplay, EGLSurface);
-		NX_FPS_Math::PostFrame();
+		bool result = ((eglSwapBuffers_0)(Address_weaks.eglSwapBuffers))(EGLDisplay, EGLSurface);
+		if (result == true)
+			 NX_FPS_Math::PostFrame();
 
 		if (!NX_FPS_Math::new_fpslock) {
 			NX_FPS_Math::FPStiming = 0;
