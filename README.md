@@ -70,7 +70,7 @@ Remember to restart Switch
 | LIMBO | plugins | 32-bit game, not supported |
 | Luigi's Mansions 2 HD | plugins | 32-bit game, not supported |
 | Luigi's Mansion 3 | plugins | Heap related |
-| Mario Kart 8 Deluxe | plugins | 32-bit game, not supported |
+| Mario Kart 8 Deluxe (1.0.0-3.0.3)| plugins | 32-bit game, not supported |
 | Mario Strikers: Battle League | plugins | Heap related |
 | Megadimension Neptunia VII | plugins | 32-bit game, not supported |
 | Moero Chronicle Hyper | plugins | 32-bit game, not supported |
