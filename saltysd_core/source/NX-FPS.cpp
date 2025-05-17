@@ -503,59 +503,61 @@ namespace vk {
 		}
 
 		void* GetDeviceProcAddr(void* device, const char* vkFunction, uintptr_t pointer) {
+			uintptr_t address = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
 			if (!strcmp("vkQueuePresentKHR", vkFunction)) {
-				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = address;
 				return (void*)&vk::QueuePresent;
 			}
 			if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
-				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = address;
 				return (void*)pointer;
 			}
 			if (!strcmp("vkCmdSetViewport", vkFunction)) {
-				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = address;
 				return (void*)&vk::CmdSetViewport;
 			}
 			if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
-				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = address;
 				return (void*)&vk::CmdSetViewportWithCount;
 			}
 			if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
-				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = address;
 				return (void*)&vk::CreateSwapchain;
 			}
 			if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
-				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = address;
 				return (void*)Ptrs.vkGetSwapchainImagesKHR;
 			}
-			return ((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+			return (void*)address;
 		}
 
 		void* GetInstanceProcAddr(void* instance, const char* vkFunction, uintptr_t pointer) {
+			uintptr_t address = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
 			if (!strcmp("vkQueuePresentKHR", vkFunction)) {
-				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = address;
 				return (void*)&vk::QueuePresent;
 			}
 			if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
-				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = address;
 				return (void*)&vk::GetDeviceProcAddr;
 			}
 			if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
-				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = address;
 				return (void*)&vk::CreateSwapchain;
 			}
 			if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
-				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = address;
 				return (void*)Ptrs.vkGetSwapchainImagesKHR;
 			}
 			if (!strcmp("vkCmdSetViewport", vkFunction)) {
-				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = address;
 				return (void*)&vk::CmdSetViewport;
 			}
 			if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
-				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = address;
 				return (void*)&vk::CmdSetViewportWithCount;
 			}
-			return ((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+			return (void*)address;
 		}
 	}
 
@@ -765,55 +767,56 @@ namespace EGL {
 	}
 
 	uintptr_t GetProc(const char* eglName) {
+		uintptr_t address = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
 		if (!strcmp(eglName, "eglSwapInterval")) {
-			if (!Address_weaks.eglSwapInterval) Address_weaks.eglSwapInterval = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.eglSwapInterval) Address_weaks.eglSwapInterval = address;
 			return (uintptr_t)&Interval;
 		}
 		else if (!strcmp(eglName, "eglSwapBuffers")) {
-			if (!Address_weaks.eglSwapBuffers) Address_weaks.eglSwapBuffers = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.eglSwapBuffers) Address_weaks.eglSwapBuffers = address;
 			return (uintptr_t)&Swap;
 		}
 		else if (!strcmp(eglName, "glViewport")) {
-			if (!Address_weaks.glViewport) Address_weaks.glViewport = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewport) Address_weaks.glViewport = address;
 			return (uintptr_t)&Viewport;
 		}
 		else if (!strcmp(eglName, "glViewportArrayv")) {
-			if (!Address_weaks.glViewportArrayv) Address_weaks.glViewportArrayv = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportArrayv) Address_weaks.glViewportArrayv = address;
 			return (uintptr_t)&ViewportArrayv;
 		}
 		else if (!strcmp(eglName, "glViewportArrayvNV")) {
-			if (!Address_weaks.glViewportArrayvNV) Address_weaks.glViewportArrayvNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportArrayvNV) Address_weaks.glViewportArrayvNV = address;
 			return (uintptr_t)&ViewportArrayvNV;
 		}
 		else if (!strcmp(eglName, "glViewportArrayvOES")) {
-			if (!Address_weaks.glViewportArrayvOES) Address_weaks.glViewportArrayvOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportArrayvOES) Address_weaks.glViewportArrayvOES = address;
 			return (uintptr_t)&ViewportArrayvOES;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedf")) {
-			if (!Address_weaks.glViewportIndexedf) Address_weaks.glViewportIndexedf = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedf) Address_weaks.glViewportIndexedf = address;
 			return (uintptr_t)&ViewportIndexedf;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedfNV")) {
-			if (!Address_weaks.glViewportIndexedfNV) Address_weaks.glViewportIndexedfNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedfNV) Address_weaks.glViewportIndexedfNV = address;
 			return (uintptr_t)&ViewportIndexedfNV;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedfOES")) {
-			if (!Address_weaks.glViewportIndexedfOES) Address_weaks.glViewportIndexedfOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedfOES) Address_weaks.glViewportIndexedfOES = address;
 			return (uintptr_t)&ViewportIndexedfOES;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedfv")) {
-			if (!Address_weaks.glViewportIndexedfv) Address_weaks.glViewportIndexedfv = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedfv) Address_weaks.glViewportIndexedfv = address;
 			return (uintptr_t)&ViewportIndexedfv;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedfvNV")) {
-			if (!Address_weaks.glViewportIndexedfvNV) Address_weaks.glViewportIndexedfvNV = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedfvNV) Address_weaks.glViewportIndexedfvNV = address;
 			return (uintptr_t)&ViewportIndexedfvNV;
 		}
 		else if (!strcmp(eglName, "glViewportIndexedfvOES")) {
-			if (!Address_weaks.glViewportIndexedfvOES) Address_weaks.glViewportIndexedfvOES = ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+			if (!Address_weaks.glViewportIndexedfvOES) Address_weaks.glViewportIndexedfvOES = address;
 			return (uintptr_t)&ViewportIndexedfvOES;
 		}
-		return ((eglGetProcAddress_0)(Address_weaks.eglGetProcAddress))(eglName);
+		return address;
 	}
 }
 
