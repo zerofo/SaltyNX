@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cmath>
 #include "lock.hpp"
+#include <algorithm>
 
 struct NVNTexture {
 	char reserved[0x80];
@@ -48,7 +49,7 @@ struct glViewportArray {
 extern "C" {
 	typedef u32 (*nvnBootstrapLoader_0)(const char * nvnName);
 	typedef bool (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
-	typedef int (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
+	typedef bool (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
 	typedef void (*glViewport_0)(int x, int y, uint width, uint height);
 	typedef void (*glViewportArrayvNV_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
 	typedef void (*glViewportArrayvOES_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
@@ -466,18 +467,25 @@ namespace vk {
 }
 
 namespace EGL {
-	int Interval(const void* EGLDisplay, int interval) {
-		int result = false;
+
+	#define EGL_MIN_SWAP_INTERVAL 0
+	#define EGL_MAX_SWAP_INTERVAL 4
+
+	bool Interval(const void* EGLDisplay, int interval) {
+		bool result = false;
 		if (!changeFPS) {
 			result = ((eglSwapInterval_0)(Address_weaks.eglSwapInterval))(EGLDisplay, interval);
 			changedFPS = false;
-			(Shared -> FPSmode) = interval;
+			if (result == true) {
+				(Shared -> FPSmode) = std::clamp(interval, EGL_MIN_SWAP_INTERVAL, EGL_MAX_SWAP_INTERVAL);
+			}
 		}
 		else if (interval < 0) {
 			interval *= -1;
 			if ((Shared -> FPSmode) != interval) {
 				result = ((eglSwapInterval_0)(Address_weaks.eglSwapInterval))(EGLDisplay, interval);
-				(Shared -> FPSmode) = interval;
+				if (result == true)
+					(Shared -> FPSmode) = interval;
 			}
 			changedFPS = true;
 		}
@@ -558,6 +566,33 @@ namespace EGL {
 		return result;
 	}
 
+	namespace Common {
+		void ViewportArrayv(uint firstViewport, uint viewportCount, const glViewportArray* pViewports, uintptr_t pointer) {
+			if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
+				if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+					NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
+				}
+			}
+			return ((glViewportArrayv_0)(pointer))(firstViewport, viewportCount, pViewports);
+		}
+
+		void ViewportIndexedf(uint index, float x, float y, float width, float height, uintptr_t pointer) {
+			if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
+				NX_FPS_Math::addResToViewports(width, height);
+			}
+			return ((glViewportIndexedf_0)(pointer))(index, x, y, width, height);
+		}
+
+		void ViewportIndexedfv(uint i, const glViewportArray* pViewports, uintptr_t pointer) {
+			if (resolutionLookup) {
+				if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
+					NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
+				}
+			}
+			return ((glViewportIndexedfv_0)(pointer))(i, pViewports);
+		}
+	}
+
 	void Viewport(int x, int y, uint width, uint height) {
 		if (resolutionLookup && height > 1 && width > 1 && !x && !y) {
 			NX_FPS_Math::addResToViewports(width, height);
@@ -565,80 +600,41 @@ namespace EGL {
 		return ((glViewport_0)(Address_weaks.glViewport))(x, y, width, height);
 	}
 
+	
 	void ViewportArrayv(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
-		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
-			
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportArrayv_0)(Address_weaks.glViewportArrayv))(firstViewport, viewportCount, pViewports);
+		return EGL::Common::ViewportArrayv(firstViewport, viewportCount, pViewports, Address_weaks.glViewportArrayv);
 	}
 
 	void ViewportArrayvNV(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
-		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportArrayvNV_0)(Address_weaks.glViewportArrayvNV))(firstViewport, viewportCount, pViewports);
+		return EGL::Common::ViewportArrayv(firstViewport, viewportCount, pViewports, Address_weaks.glViewportArrayvNV);
 	}
 
 	void ViewportArrayvOES(uint firstViewport, uint viewportCount, const glViewportArray* pViewports) {
-		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportArrayvOES_0)(Address_weaks.glViewportArrayvOES))(firstViewport, viewportCount, pViewports);
-	}
-
-	void ViewportIndexedfNV(uint index, float x, float y, float width, float height) {
-		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			NX_FPS_Math::addResToViewports(width, height);
-		}
-		return ((glViewportIndexedfNV_0)(Address_weaks.glViewportIndexedfNV))(index, x, y, width, height);
-	}
-
-	void ViewportIndexedfvNV(uint i, const glViewportArray* pViewports) {
-		if (resolutionLookup) {
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportIndexedfvNV_0)(Address_weaks.glViewportIndexedfvNV))(i, pViewports);
+		return EGL::Common::ViewportArrayv(firstViewport, viewportCount, pViewports, Address_weaks.glViewportArrayvOES);
 	}
 
 	void ViewportIndexedf(uint index, float x, float y, float width, float height) {
-		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			NX_FPS_Math::addResToViewports(width, height);
-		}
-		return ((glViewportIndexedf_0)(Address_weaks.glViewportIndexedf))(index, x, y, width, height);
+		return EGL::Common::ViewportIndexedf(index, x, y, width, height, Address_weaks.glViewportIndexedf);
 	}
 
-	void ViewportIndexedfv(uint i, const glViewportArray* pViewports) {
-		if (resolutionLookup) {
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportIndexedfv_0)(Address_weaks.glViewportIndexedfv))(i, pViewports);
+	void ViewportIndexedfNV(uint index, float x, float y, float width, float height) {
+		return EGL::Common::ViewportIndexedf(index, x, y, width, height, Address_weaks.glViewportIndexedfNV);
 	}
 
 	void ViewportIndexedfOES(uint index, float x, float y, float width, float height) {
-		if (resolutionLookup && height > 1.f && width > 1.f && !x && !y) {
-			NX_FPS_Math::addResToViewports(width, height);
-		}
-		return ((glViewportIndexedfOES_0)(Address_weaks.glViewportIndexedfOES))(index, x, y, width, height);
+		return EGL::Common::ViewportIndexedf(index, x, y, width, height, Address_weaks.glViewportIndexedfOES);
+	}
+
+	void ViewportIndexedfv(uint i, const glViewportArray* pViewports) {
+		return EGL::Common::ViewportIndexedfv(i, pViewports, Address_weaks.glViewportIndexedfv);
+	}
+
+	void ViewportIndexedfvNV(uint i, const glViewportArray* pViewports) {
+		return EGL::Common::ViewportIndexedfv(i, pViewports, Address_weaks.glViewportIndexedfvNV);
 	}
 
 	void ViewportIndexedfvOES(uint i, const glViewportArray* pViewports) {
-		if (resolutionLookup) {
-			if (pViewports[i].height > 1.f && pViewports[i].width > 1.f && pViewports[i].x == 0.f && pViewports[i].y == 0.f) {
-				NX_FPS_Math::addResToViewports(pViewports[i].width, pViewports[i].height);
-			}
-		}
-		return ((glViewportIndexedfvOES_0)(Address_weaks.glViewportIndexedfvOES))(i, pViewports);
+		return EGL::Common::ViewportIndexedfv(i, pViewports, Address_weaks.glViewportIndexedfvOES);
 	}
 
 	uintptr_t GetProc(const char* eglName) {
