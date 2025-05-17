@@ -22,21 +22,19 @@ struct SystemEvent {
 	bool flag;
 };
 
-extern "C" {
-	typedef u32 (*_ZN2nn2oe18GetPerformanceModeEv)();
-	typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
-	typedef bool (*_ZN2nn2oe25TryPopNotificationMessageEPj)(int &Message);
-	typedef int (*_ZN2nn2oe22PopNotificationMessageEv)();
-	typedef void (*_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(int* width, int* height);
-	typedef void (*_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE)(SystemEvent* systemEvent);
-	typedef bool (*nnosTryWaitSystemEvent)(SystemEvent* systemEvent);
-	typedef void (*nnosWaitSystemEvent)(SystemEvent* systemEvent);
-	typedef SystemEvent* (*_ZN2nn2oe27GetNotificationMessageEventEv)();
-	typedef void (*nnosInitializeMultiWaitHolderForSystemEvent)(void* MultiWaitHolderType, SystemEvent* systemEvent);
-	typedef void (*nnosLinkMultiWaitHolder)(void* MultiWaitType, void* MultiWaitHolderType);
-	typedef void* (*nnosWaitAny)(void* MultiWaitType);
-	typedef void* (*nnosTimedWaitAny)(void* MultiWaitType, u64 TimeSpan);
-}
+typedef u32 (*_ZN2nn2oe18GetPerformanceModeEv)();
+typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
+typedef bool (*_ZN2nn2oe25TryPopNotificationMessageEPj)(int &Message);
+typedef int (*_ZN2nn2oe22PopNotificationMessageEv)();
+typedef void (*_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(int* width, int* height);
+typedef void (*_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE)(SystemEvent* systemEvent);
+typedef bool (*nnosTryWaitSystemEvent)(SystemEvent* systemEvent);
+typedef void (*nnosWaitSystemEvent)(SystemEvent* systemEvent);
+typedef SystemEvent* (*_ZN2nn2oe27GetNotificationMessageEventEv)();
+typedef void (*nnosInitializeMultiWaitHolderForSystemEvent)(void* MultiWaitHolderType, SystemEvent* systemEvent);
+typedef void (*nnosLinkMultiWaitHolder)(void* MultiWaitType, void* MultiWaitHolderType);
+typedef void* (*nnosWaitAny)(void* MultiWaitType);
+typedef void* (*nnosTimedWaitAny)(void* MultiWaitType, u64 TimeSpan);
 
 struct {
 	uintptr_t GetPerformanceMode;

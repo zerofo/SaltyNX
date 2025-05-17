@@ -46,35 +46,33 @@ struct glViewportArray {
 	float height;
 };
 
-extern "C" {
-	typedef u32 (*nvnBootstrapLoader_0)(const char * nvnName);
-	typedef bool (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
-	typedef bool (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
-	typedef void (*glViewport_0)(int x, int y, uint width, uint height);
-	typedef void (*glViewportArrayvNV_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
-	typedef void (*glViewportArrayvOES_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
-	typedef void (*glViewportIndexedfNV_0)(uint index, float x, float y, float width, float height);
-	typedef void (*glViewportIndexedfvNV_0)(uint index, const glViewportArray* pViewports);
-	typedef void (*glViewportIndexedfOES_0)(uint index, float x, float y, float width, float height);
-	typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pViewports);
-	typedef void (*glViewportArrayv_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
-	typedef void (*glViewportIndexedf_0)(uint index, float x, float y, float width, float height);
-	typedef void (*glViewportIndexedfv_0)(uint index, const glViewportArray* pViewports);
-	typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
-	typedef s32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
-	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
-	typedef void (*_ZN2nn2os13GetSystemTickEv_0)(u64* output);
-	typedef u32 (*eglGetProcAddress_0)(const char* eglName);
-	typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
-	typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
-	typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, NVNViewport* viewports);
-	typedef void* (*nvnCommandBufferSetDepthRange_0)(void* cmdBuf, float s0, float s1);
-	typedef u16 (*nvnTextureGetWidth_0)(NVNTexture* texture);
-	typedef u16 (*nvnTextureGetHeight_0)(NVNTexture* texture);
-	typedef u32 (*nvnTextureGetFormat_0)(NVNTexture* texture);
-	typedef void* (*_vkGetInstanceProcAddr_0)(void* instance, const char* vkFunction);
-	typedef void* (*vkGetDeviceProcAddr_0)(void* device, const char* vkFunction);
-}
+typedef u32 (*nvnBootstrapLoader_0)(const char * nvnName);
+typedef bool (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
+typedef bool (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
+typedef void (*glViewport_0)(int x, int y, uint width, uint height);
+typedef void (*glViewportArrayvNV_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+typedef void (*glViewportArrayvOES_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+typedef void (*glViewportIndexedfNV_0)(uint index, float x, float y, float width, float height);
+typedef void (*glViewportIndexedfvNV_0)(uint index, const glViewportArray* pViewports);
+typedef void (*glViewportIndexedfOES_0)(uint index, float x, float y, float width, float height);
+typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pViewports);
+typedef void (*glViewportArrayv_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
+typedef void (*glViewportIndexedf_0)(uint index, float x, float y, float width, float height);
+typedef void (*glViewportIndexedfv_0)(uint index, const glViewportArray* pViewports);
+typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
+typedef s32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
+typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
+typedef void (*_ZN2nn2os13GetSystemTickEv_0)(u64* output);
+typedef u32 (*eglGetProcAddress_0)(const char* eglName);
+typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
+typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
+typedef void* (*nvnCommandBufferSetViewports_0)(void* cmdBuf, int start, int count, NVNViewport* viewports);
+typedef void* (*nvnCommandBufferSetDepthRange_0)(void* cmdBuf, float s0, float s1);
+typedef u16 (*nvnTextureGetWidth_0)(NVNTexture* texture);
+typedef u16 (*nvnTextureGetHeight_0)(NVNTexture* texture);
+typedef u32 (*nvnTextureGetFormat_0)(NVNTexture* texture);
+typedef void* (*_vkGetInstanceProcAddr_0)(void* instance, const char* vkFunction);
+typedef void* (*vkGetDeviceProcAddr_0)(void* device, const char* vkFunction);
 
 struct {
 	uintptr_t nvnBootstrapLoader;
