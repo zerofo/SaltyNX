@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cmath>
 #include "lock.hpp"
+#include <algorithm>
 
 struct NVNTexture {
 	char reserved[0x80];
@@ -67,7 +68,7 @@ extern "C" {
 
 	typedef u64 (*nvnBootstrapLoader_0)(const char * nvnName);
 	typedef bool (*eglSwapBuffers_0)(const void* EGLDisplay, const void* EGLSurface);
-	typedef int (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
+	typedef bool (*eglSwapInterval_0)(const void* EGLDisplay, int interval);
 	typedef void (*glViewport_0)(int x, int y, uint width, uint height);
 	typedef void (*glViewportArrayv_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
 	typedef void (*glViewportArrayvNV_0)(uint firstViewport, uint viewportCount, const glViewportArray* pViewports);
@@ -612,18 +613,24 @@ namespace vk {
 
 namespace EGL {
 
-	int Interval(const void* EGLDisplay, int interval) {
-		int result = false;
+	#define EGL_MIN_SWAP_INTERVAL 0
+	#define EGL_MAX_SWAP_INTERVAL 4
+
+	bool Interval(const void* EGLDisplay, int interval) {
+		bool result = false;
 		if (!changeFPS) {
 			result = ((eglSwapInterval_0)(Address_weaks.eglSwapInterval))(EGLDisplay, interval);
 			changedFPS = false;
-			(Shared -> FPSmode) = interval;
+			if (result == true) {
+				(Shared -> FPSmode) = std::clamp(interval, EGL_MIN_SWAP_INTERVAL, EGL_MAX_SWAP_INTERVAL);
+			}
 		}
 		else if (interval < 0) {
 			interval *= -1;
 			if ((Shared -> FPSmode) != interval) {
 				result = ((eglSwapInterval_0)(Address_weaks.eglSwapInterval))(EGLDisplay, interval);
-				(Shared -> FPSmode) = interval;
+				if (result == true)
+					(Shared -> FPSmode) = interval;
 			}
 			changedFPS = true;
 		}
