@@ -79,7 +79,6 @@ extern "C" {
 	typedef void (*glViewportIndexedfOES_0)(uint index, float x, float y, float width, float height);
 	typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pViewports);
 	typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
-	typedef s32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
 	typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 	typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
 	typedef u64 (*eglGetProcAddress_0)(const char* eglName);
@@ -124,6 +123,10 @@ struct {
 	uintptr_t vkCmdSetViewport;
 	uintptr_t vkCmdSetViewportWithCount;
 	uintptr_t vkCreateSwapchainKHR;
+	uintptr_t nvSwapchainCreateSwapchainKHR;
+	uintptr_t nvSwapchainGetInstanceProcAddr;
+	uintptr_t nvSwapchainGetDeviceProcAddr;
+	uintptr_t vkGetDeviceProcAddr;
 } Address_weaks;
 
 struct nvnWindowBuilder {
@@ -224,8 +227,8 @@ struct {
 	uintptr_t nvnCommandBufferSetViewport;
 	uintptr_t nvnCommandBufferSetViewports;
 	uintptr_t nvnCommandBufferSetDepthRange;
-	uintptr_t vkGetDeviceProcAddr;
 	uintptr_t vkGetSwapchainImagesKHR;
+	uintptr_t nvSwapchainGetSwapchainImagesKHR;
 } Ptrs;
 
 struct {
@@ -433,76 +436,10 @@ namespace NX_FPS_Math {
 
 namespace vk {
 
-	namespace nvSwapchain { 
-	int32_t QueuePresent (const void* VkQueue_T, const void* VkPresentInfoKHR) {
-
-		if (!NX_FPS_Math::starttick) {
-			(Shared -> API) = 3;
-			NX_FPS_Math::starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
-			NX_FPS_Math::starttick2 = NX_FPS_Math::starttick;
-		}
-
-		NX_FPS_Math::PreFrame();
-
-		int32_t vulkanResult = ((_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(Address_weaks.nvSwapchainQueuePresentKHR))(VkQueue_T, VkPresentInfoKHR);
-		if (vulkanResult >= 0) NX_FPS_Math::PostFrame();
-
-		if (!NX_FPS_Math::new_fpslock) {
-			NX_FPS_Math::FPStiming = 0;
-			NX_FPS_Math::FPSlock = 0;
-			changeFPS = false;
-		}
-		else {
-			changeFPS = true;
-			NX_FPS_Math::FPSlock = (Shared -> FPSlocked);
-			if (NX_FPS_Math::new_fpslock != ((Shared -> displaySync) ? (Shared -> displaySync) : 60))
-				NX_FPS_Math::FPStiming = (systemtickfrequency/NX_FPS_Math::new_fpslock) - 6000;
-			else NX_FPS_Math::FPStiming = 0;
-		}
-		
-		return vulkanResult;
-	}}
-
-	int32_t QueuePresent (const void* VkQueue, const void* VkPresentInfoKHR) {
-		
-		if (!NX_FPS_Math::starttick) {
-			(Shared -> API) = 3;
-			NX_FPS_Math::starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
-			NX_FPS_Math::starttick2 = NX_FPS_Math::starttick;
-		}
-
-		NX_FPS_Math::PreFrame();
-		int32_t vulkanResult = ((vkQueuePresentKHR_0)(Address_weaks.vkQueuePresentKHR))(VkQueue, VkPresentInfoKHR);
-		if (vulkanResult >= 0) NX_FPS_Math::PostFrame();
-
-		if (!NX_FPS_Math::new_fpslock) {
-			NX_FPS_Math::FPStiming = 0;
-			NX_FPS_Math::FPSlock = 0;
-			changeFPS = false;
-		}
-		else {
-			changeFPS = true;
-			NX_FPS_Math::FPSlock = (Shared -> FPSlocked);
-			if (NX_FPS_Math::new_fpslock != ((Shared -> displaySync) ? (Shared -> displaySync) : 60))
-				NX_FPS_Math::FPStiming = (systemtickfrequency/NX_FPS_Math::new_fpslock) - 6000;
-			else NX_FPS_Math::FPStiming = 0;
-		}
-		
-		return vulkanResult;
-	}
-
-	int32_t CreateSwapchain(void* Device, VkSwapchainCreateInfoKHR* pCreateInfo, const void* pAllocator, const void** pSwapchain) {
-		if ((Shared -> SetBuffers) > 0) {
-			pCreateInfo -> minImageCount = (Shared -> SetBuffers);
-		}
-		int32_t vulkanResult = ((vkCreateSwapchainKHR_0)(Address_weaks.vkCreateSwapchainKHR))(Device, (const VkSwapchainCreateInfoKHR*)pCreateInfo, pAllocator, pSwapchain);
-		if (vulkanResult >= 0) {
-			uint32_t numBuffers = 0;
-			((vkGetSwapchainImagesKHR_0)(Ptrs.vkGetSwapchainImagesKHR))(Device, (void*)pSwapchain[0], &numBuffers, nullptr);
-			(Shared -> Buffers) = numBuffers;
-		}
-		return vulkanResult;
-	}
+	int32_t QueuePresent (const void* VkQueue, const void* VkPresentInfoKHR);
+	int32_t CreateSwapchain(void* Device, VkSwapchainCreateInfoKHR* pCreateInfo, const void* pAllocator, const void** pSwapchain);
+	void* GetDeviceProcAddr(void* device, const char* vkFunction);
+	void* GetInstanceProcAddr(void* instance, const char* vkFunction);
 
 	void CmdSetViewport(void* commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports) {
 		if (resolutionLookup) for (uint i = firstViewport; i < firstViewport+viewportCount; i++) {
@@ -522,61 +459,152 @@ namespace vk {
 		return ((vkCmdSetViewportWithCount_0)(Address_weaks.vkCmdSetViewportWithCount))(commandBuffer, viewportCount, pViewports);
 	}
 
+	namespace Common {
+		int32_t QueuePresent(const void* VkQueue_T, const void* VkPresentInfoKHR, uintptr_t pointer) {
+			static bool frame_block = false;
+
+			if (frame_block == true)
+				return ((vkQueuePresentKHR_0)(pointer))(VkQueue_T, VkPresentInfoKHR);
+			if (!NX_FPS_Math::starttick) {
+				(Shared -> API) = 3;
+				NX_FPS_Math::starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
+				NX_FPS_Math::starttick2 = NX_FPS_Math::starttick;
+			}
+			
+			NX_FPS_Math::PreFrame();
+			frame_block = true;
+			int32_t vulkanResult = ((vkQueuePresentKHR_0)(pointer))(VkQueue_T, VkPresentInfoKHR);
+			frame_block = false;
+			if (vulkanResult >= 0) NX_FPS_Math::PostFrame();
+
+			if (!NX_FPS_Math::new_fpslock) {
+				NX_FPS_Math::FPStiming = 0;
+				NX_FPS_Math::FPSlock = 0;
+				changeFPS = false;
+			}
+			else {
+				changeFPS = true;
+				NX_FPS_Math::FPSlock = (Shared -> FPSlocked);
+				if (NX_FPS_Math::new_fpslock != ((Shared -> displaySync) ? (Shared -> displaySync) : 60))
+					NX_FPS_Math::FPStiming = (systemtickfrequency/NX_FPS_Math::new_fpslock) - 6000;
+				else NX_FPS_Math::FPStiming = 0;
+			}
+			
+			return vulkanResult;
+		}
+
+		int32_t CreateSwapchain(void* Device, VkSwapchainCreateInfoKHR* pCreateInfo, const void* pAllocator, const void** pSwapchain, uintptr_t pointer) {
+			if ((Shared -> SetBuffers) > 0) {
+				pCreateInfo -> minImageCount = (Shared -> SetBuffers);
+			}
+			int32_t vulkanResult = ((vkCreateSwapchainKHR_0)(pointer))(Device, (const VkSwapchainCreateInfoKHR*)pCreateInfo, pAllocator, pSwapchain);
+			if (vulkanResult >= 0) {
+				uint32_t numBuffers = 0;
+				((vkGetSwapchainImagesKHR_0)(Ptrs.vkGetSwapchainImagesKHR))(Device, (void*)pSwapchain[0], &numBuffers, nullptr);
+				(Shared -> Buffers) = numBuffers;
+			}
+			return vulkanResult;
+		}
+
+		void* GetDeviceProcAddr(void* device, const char* vkFunction, uintptr_t pointer) {
+			if (!strcmp("vkQueuePresentKHR", vkFunction)) {
+				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)&vk::QueuePresent;
+			}
+			if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
+				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)pointer;
+			}
+			if (!strcmp("vkCmdSetViewport", vkFunction)) {
+				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)&vk::CmdSetViewport;
+			}
+			if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
+				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)&vk::CmdSetViewportWithCount;
+			}
+			if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
+				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)&vk::CreateSwapchain;
+			}
+			if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
+				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+				return (void*)Ptrs.vkGetSwapchainImagesKHR;
+			}
+			return ((vkGetDeviceProcAddr_0)(pointer))(device, vkFunction);
+		}
+
+		void* GetInstanceProcAddr(void* instance, const char* vkFunction, uintptr_t pointer) {
+			if (!strcmp("vkQueuePresentKHR", vkFunction)) {
+				if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)&vk::QueuePresent;
+			}
+			if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
+				if (!Address_weaks.vkGetDeviceProcAddr) Address_weaks.vkGetDeviceProcAddr = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)&vk::GetDeviceProcAddr;
+			}
+			if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
+				if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)&vk::CreateSwapchain;
+			}
+			if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
+				if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)Ptrs.vkGetSwapchainImagesKHR;
+			}
+			if (!strcmp("vkCmdSetViewport", vkFunction)) {
+				if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)&vk::CmdSetViewport;
+			}
+			if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
+				if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+				return (void*)&vk::CmdSetViewportWithCount;
+			}
+			return ((_vkGetInstanceProcAddr_0)(pointer))(instance, vkFunction);
+		}
+	}
+
+	namespace nvSwapchain { 
+		int32_t QueuePresent (const void* VkQueue_T, const void* VkPresentInfoKHR) {
+			return vk::Common::QueuePresent(VkQueue_T, VkPresentInfoKHR, Address_weaks.nvSwapchainQueuePresentKHR);
+		}
+
+		int32_t CreateSwapchain(void* Device, VkSwapchainCreateInfoKHR* pCreateInfo, const void* pAllocator, const void** pSwapchain) {
+			return vk::Common::CreateSwapchain(Device, pCreateInfo, pAllocator, pSwapchain, Address_weaks.nvSwapchainCreateSwapchainKHR);
+		}
+
+		void* GetDeviceProcAddr(void* device, const char* vkFunction) {
+			return vk::Common::GetDeviceProcAddr(device, vkFunction, Address_weaks.nvSwapchainGetDeviceProcAddr);
+		}
+
+		void* GetInstanceProcAddr(void* instance, const char* vkFunction) {
+			return vk::Common::GetInstanceProcAddr(instance, vkFunction, Address_weaks.nvSwapchainGetInstanceProcAddr);
+		}
+	}
+
+	int32_t QueuePresent (const void* VkQueue, const void* VkPresentInfoKHR) {
+		return vk::Common::QueuePresent(VkQueue, VkPresentInfoKHR, Address_weaks.vkQueuePresentKHR);
+	}
+
+	int32_t CreateSwapchain(void* Device, VkSwapchainCreateInfoKHR* pCreateInfo, const void* pAllocator, const void** pSwapchain) {
+		return vk::Common::CreateSwapchain(Device, pCreateInfo, pAllocator, pSwapchain, Address_weaks.vkCreateSwapchainKHR);
+	}
+
 	void* GetDeviceProcAddr(void* device, const char* vkFunction) {
-		if (!strcmp("vkQueuePresentKHR", vkFunction)) {
-			if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)&QueuePresent;
-		}
-		if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
-			if (!Ptrs.vkGetDeviceProcAddr) Ptrs.vkGetDeviceProcAddr = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)&GetDeviceProcAddr;
-		}
-		if (!strcmp("vkCmdSetViewport", vkFunction)) {
-			if (!Address_weaks.vkCmdSetViewport) Address_weaks.vkCmdSetViewport = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)&CmdSetViewport;
-		}
-		if (!strcmp("vkCmdSetViewportWithCount", vkFunction)) {
-			if (!Address_weaks.vkCmdSetViewportWithCount) Address_weaks.vkCmdSetViewportWithCount = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)&CmdSetViewportWithCount;
-		}
-		if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
-			if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)&vk::CreateSwapchain;
-		}
-		if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
-			if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
-			return (void*)Ptrs.vkGetSwapchainImagesKHR;
-		}
-		return ((vkGetDeviceProcAddr_0)(Ptrs.vkGetDeviceProcAddr))(device, vkFunction);
+		return vk::Common::GetDeviceProcAddr(device, vkFunction, Address_weaks.vkGetDeviceProcAddr);
 	}
 
 	void* GetInstanceProcAddr(void* instance, const char* vkFunction) {
-		if (!strcmp("vkQueuePresentKHR", vkFunction)) {
-			if (!Address_weaks.vkQueuePresentKHR) Address_weaks.vkQueuePresentKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
-			return (void*)&QueuePresent;
-		}
-		if (!strcmp("vkGetDeviceProcAddr", vkFunction)) {
-			if (!Ptrs.vkGetDeviceProcAddr) Ptrs.vkGetDeviceProcAddr = (uintptr_t)((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
-			return (void*)&GetDeviceProcAddr;
-		}
-		if (!strcmp("vkCreateSwapchainKHR", vkFunction)) {
-			if (!Address_weaks.vkCreateSwapchainKHR) Address_weaks.vkCreateSwapchainKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
-			return (void*)&vk::CreateSwapchain;
-		}
-		if (!strcmp("vkGetSwapchainImagesKHR", vkFunction)) {
-			if (!Ptrs.vkGetSwapchainImagesKHR) Ptrs.vkGetSwapchainImagesKHR = (uintptr_t)((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
-			return (void*)Ptrs.vkGetSwapchainImagesKHR;
-		}
-		return ((_vkGetInstanceProcAddr_0)(Address_weaks.vkGetInstanceProcAddr))(instance, vkFunction);
+		return vk::Common::GetInstanceProcAddr(instance, vkFunction, Address_weaks.vkGetInstanceProcAddr);
 	}
 
 	u32 LookupSymbol(uintptr_t* pOutAddress, const char* name) {
 		if (!strcmp("vkGetInstanceProcAddr", name)) {
+			((_ZN2nn2ro12LookupSymbolEPmPKc_0)(Address_weaks.LookupSymbol))(&Address_weaks.vkGetInstanceProcAddr, name);
 			*pOutAddress = (uintptr_t)&GetInstanceProcAddr;
 			return 0;
 		}
 		if (!strcmp("vkGetDeviceProcAddr", name)) {
-			((_ZN2nn2ro12LookupSymbolEPmPKc_0)(Address_weaks.LookupSymbol))(&Ptrs.vkGetDeviceProcAddr, name);
+			((_ZN2nn2ro12LookupSymbolEPmPKc_0)(Address_weaks.LookupSymbol))(&Address_weaks.vkGetDeviceProcAddr, name);
 			*pOutAddress = (uintptr_t)&GetDeviceProcAddr;
 			return 0;
 		}
@@ -1094,7 +1122,10 @@ extern "C" {
 			Address_weaks.glViewportIndexedfvNV = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfvNV");
 			Address_weaks.glViewportIndexedfvOES = SaltySDCore_FindSymbolBuiltin("glViewportIndexedfvOES");
 			Address_weaks.vkCreateSwapchainKHR = SaltySDCore_FindSymbolBuiltin("vkCreateSwapchainKHR");
+			Address_weaks.vkGetDeviceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetDeviceProcAddr");
 			Ptrs.vkGetSwapchainImagesKHR = SaltySDCore_FindSymbolBuiltin("vkGetSwapchainImagesKHR");
+			Ptrs.nvSwapchainGetSwapchainImagesKHR = SaltySDCore_FindSymbolBuiltin("_ZN11NvSwapchain21GetSwapchainImagesKHREP10VkDevice_TP16VkSwapchainKHR_TPjPP9VkImage_T");
+			Address_weaks.nvSwapchainCreateSwapchainKHR = SaltySDCore_FindSymbolBuiltin("_ZN11NvSwapchain18CreateSwapchainKHREP10VkDevice_TPK24VkSwapchainCreateInfoKHRPK21VkAllocationCallbacksPP16VkSwapchainKHR_T");
 			SaltySDCore_ReplaceImport("nvnBootstrapLoader", (void*)NVN::BootstrapLoader_1);
 			SaltySDCore_ReplaceImport("eglSwapBuffers", (void*)EGL::Swap);
 			SaltySDCore_ReplaceImport("eglSwapInterval", (void*)EGL::Interval);
@@ -1111,6 +1142,7 @@ extern "C" {
 			SaltySDCore_ReplaceImport("vkQueuePresentKHR", (void*)vk::QueuePresent);
 			SaltySDCore_ReplaceImport("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR", (void*)vk::nvSwapchain::QueuePresent);
 			SaltySDCore_ReplaceImport("eglGetProcAddress", (void*)EGL::GetProc);
+			SaltySDCore_ReplaceImport("vkGetDeviceProcAddr", (void*)vk::GetDeviceProcAddr);
 			SaltySDCore_ReplaceImport("vkGetInstanceProcAddr", (void*)vk::GetInstanceProcAddr);
 			SaltySDCore_ReplaceImport("vkCmdSetViewport", (void*)vk::CmdSetViewport);
 			SaltySDCore_ReplaceImport("vkCmdSetViewportWithCount", (void*)vk::CmdSetViewportWithCount);
