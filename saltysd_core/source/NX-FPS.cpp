@@ -882,6 +882,10 @@ namespace NVN {
 
 	void PresentTexture(const void* _this, const NVNWindow* nvnWindow, int index) {
 
+		static int last_index = 0;
+		if (last_index == index) {
+			return ((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, index);
+		}
 		//Initialize time calculation;
 		if (!NX_FPS_Math::starttick) {
 			NX_FPS_Math::starttick = ((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))();
@@ -889,10 +893,9 @@ namespace NVN {
 			(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
 		}
 		
-		static int last_index = 0;
-		if (last_index != index) NX_FPS_Math::PreFrame();
+		NX_FPS_Math::PreFrame();
 		((nvnQueuePresentTexture_0)(Ptrs.nvnQueuePresentTexture))(_this, nvnWindow, index);
-		if (last_index != index) NX_FPS_Math::PostFrame();
+		NX_FPS_Math::PostFrame();
 		last_index = index;
 
 		(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Ptrs.nvnWindowGetPresentInterval))(nvnWindow);
