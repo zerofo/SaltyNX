@@ -265,7 +265,7 @@ namespace NX_FPS_Math {
 			old_force = (Shared -> forceOriginalRefreshRate);
 		}
 
-		if ((FPStiming && !LOCK::blockDelayFPS && (!new_fpslock || new_fpslock < (Shared -> displaySync)))) {
+		if ((FPStiming && !LOCK::blockDelayFPS && (!new_fpslock || (new_fpslock && !(Shared -> displaySync)) || new_fpslock < (Shared -> displaySync)))) {
 			uint64_t tick = 0;
 			((_ZN2nn2os13GetSystemTickEv_0)(Address_weaks.GetSystemTick))(&tick);
 			if ((int64_t)(tick - frameend) < (FPStiming + (range * 20))) {
