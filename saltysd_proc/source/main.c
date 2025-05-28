@@ -16,6 +16,7 @@
 #include "dmntcht.h"
 #include <math.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #define MODULE_SALTYSD 420
 #define	NVDISP_GET_MODE 0x80380204
@@ -215,6 +216,12 @@ void remove_spaces(char* str_trimmed, const char* str_untrimmed)
   str_trimmed[0] = '\0';
 }
 
+bool file_exists(const char *filename)
+{
+    struct stat buffer;
+    return stat(filename, &buffer) == 0 ? true : false;
+}
+
 void LoadDockedModeAllowedSave() {
     SetSysEdid edid = {0};
     setDefaultDockedSettings();
@@ -225,14 +232,16 @@ void LoadDockedModeAllowedSave() {
     char path[128] = "";
     int crc32 = crc32Calculate(&edid, sizeof(edid));
     snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.dat", crc32);
-    FILE* file = fopen(path, "rb");
-    if (!file) {
-        file = fopen(path, "wb");
-        fwrite(&edid, sizeof(edid), 1, file);
+    if (file_exists(path) == false) {
+        FILE* file = fopen(path, "wb");
+        if (file) {
+            fwrite(&edid, sizeof(edid), 1, file);
+            fclose(file);
+        }
+        else SaltySD_printf("SaltySD: Couldn't dump EDID to sdcard!\n", &path[31]);
     }
-    fclose(file);
     snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
-    file = fopen(path, "r");
+    FILE* file = fopen(path, "r");
     if (file) {
         SaltySD_printf("SaltySD: %s opened successfully!\n", &path[31]);
         fseek(file, 0, 2);
