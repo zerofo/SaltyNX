@@ -547,6 +547,10 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
             nvClose(fd);
             return false;
         }
+        if (((DISPLAY_B.vActive == 480 && DISPLAY_B.hActive == 720) || (DISPLAY_B.vActive == 720 && DISPLAY_B.hActive == 1280) || (DISPLAY_B.vActive == 1080 && DISPLAY_B.hActive == 1920)) == false) {
+            nvClose(fd);
+            return false;
+        }
         if (DISPLAY_B.vActive != last_vActive) {
             last_vActive = DISPLAY_B.vActive;
             if (DISPLAY_B.vActive != 720 && DISPLAY_B.vActive != 1080) {
@@ -566,10 +570,6 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
                     DockedModeRefreshRateAllowed[i] = true;
                 }
             }
-        }
-        if (((DISPLAY_B.vActive == 720 && DISPLAY_B.hActive == 1280) || (DISPLAY_B.vActive == 1080 && DISPLAY_B.hActive == 1920)) == false) {
-            nvClose(fd);
-            return false;
         }
         uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
         uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
