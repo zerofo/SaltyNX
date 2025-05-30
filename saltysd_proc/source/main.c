@@ -18,11 +18,15 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
+#include "parse-cta-block.h"
+
 #define MODULE_SALTYSD 420
-#define	NVDISP_GET_MODE 0x80380204
-#define	NVDISP_SET_MODE 0x40380205
-#define NVDISP_VALIDATE_MODE 0xC038020A
+#define	NVDISP_GET_MODE2 0x803C021B
+#define	NVDISP_SET_MODE2 0x403C021C
+#define NVDISP_VALIDATE_MODE2 0xC03C021D
 #define DSI_CLOCK_HZ 234000000llu
+#define NVDISP_GET_AVI_INFOFRAME 0x80600210
+#define NVDISP_SET_AVI_INFOFRAME 0x40600211
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -48,12 +52,13 @@ struct NxFpsSharedBlock {
 	uint8_t SetBuffers;
 	uint8_t ActiveBuffers;
 	uint8_t SetActiveBuffers;
-	uint8_t displaySync;
+	bool displaySync;
 	struct resolutionCalls renderCalls[8];
 	struct resolutionCalls viewportCalls[8];
 	bool forceOriginalRefreshRate;
     bool dontForce60InDocked;
     bool forceSuspend;
+    uint8_t CurrentRefreshRate;
 } NX_PACKED;
 
 struct NxFpsSharedBlock* nx_fps = 0;
@@ -81,6 +86,7 @@ bool cheatCheck = false;
 bool isDocked = false;
 bool dontForce60InDocked = false;
 bool matchLowestDocked = false;
+uint8_t dockedHighestRefreshRate = 60;
 
 void __libnx_initheap(void)
 {
@@ -128,15 +134,47 @@ bool DockedModeRefreshRateAllowed[]         = { false,  //40Hz
                                                 false,  //45Hz
                                                 true,   //50Hz
                                                 false,  //55Hz
-                                                true};  //60Hz
+                                                true,   //60Hz
+                                                false,  //70Hz
+                                                false,  //72Hz
+                                                false,  //75Hz
+                                                false,  //80Hz
+                                                false,  //90Hz
+                                                false,  //95Hz
+                                                false,  //100Hz
+                                                false,  //110Hz
+                                                false}; //120Hz
 
-uint8_t DockedModeRefreshRateAllowedValues[] = { 40,
-                                                 45,
-                                                 50,
-                                                 55,
-                                                 60};
+uint8_t DockedModeRefreshRateAllowedValues[] = {40, 45, 50, 55, 60, 70, 72, 75, 80, 90, 95, 100, 110, 120};
+
+struct dockedTimings {
+    uint16_t hFrontPorch;
+    uint8_t hSyncWidth;
+    uint8_t hBackPorch;
+    uint8_t vFrontPorch;
+    uint8_t vSyncWidth;
+    uint8_t vBackPorch;
+    uint8_t VIC;
+    uint32_t pixelClock_kHz;
+} NX_PACKED;
+
+struct dockedTimings dockedTimings1080p[] =    {{8, 32, 40, 7, 8, 6, 0, 88080},        //40Hz CVT-RBv2
+                                                {8, 32, 40, 9, 8, 6, 0, 99270},        //45Hz CVT-RBv2
+                                                {528, 44, 148, 4, 5, 36, 31, 148500},  //50Hz CEA-861
+                                                {8, 32, 40, 15, 8, 6, 0, 121990},      //55Hz CVT-RBv2
+                                                {88, 44, 148, 4, 5, 36, 16, 148500},   //60Hz CEA-861
+                                                {8, 32, 40, 22, 8, 6, 0, 156240},      //70Hz CVT-RBv2
+                                                {8, 32, 40, 23, 8, 6, 0, 160848},      //72Hz CVT-RBv2
+                                                {8, 32, 40, 25, 8, 6, 0, 167850},      //75Hz CVT-RBv2
+                                                {8, 32, 40, 28, 8, 6, 0, 179520},      //80Hz CVT-RBv2
+                                                {8, 32, 40, 33, 8, 6, 0, 202860},      //90Hz CVT-RBv2
+                                                {8, 32, 40, 36, 8, 6, 0, 214700},      //95Hz CVT-RBv2
+                                                {528, 44, 148, 4, 5, 36, 64, 297000},  //100Hz CEA-861
+                                                {8, 32, 40, 44, 8, 6, 0, 250360},      //110Hz CVT-RBv2
+                                                {88, 44, 148, 4, 5, 36, 63, 297000}};  //120Hz CEA-861
 
 static_assert(sizeof(DockedModeRefreshRateAllowedValues) == sizeof(DockedModeRefreshRateAllowed));
+static_assert((sizeof(dockedTimings1080p) / sizeof(dockedTimings1080p[0])) == sizeof(DockedModeRefreshRateAllowedValues));
 
 struct MinMax {
     u8 min;
@@ -177,7 +215,8 @@ struct PLLD_MISC {
     unsigned int reserved: 2;
 };
 
-struct nvdcMode {
+struct nvdcMode2 {
+    unsigned int unk0;
     unsigned int hActive;
     unsigned int vActive;
     unsigned int hSyncWidth;
@@ -186,12 +225,190 @@ struct nvdcMode {
     unsigned int vFrontPorch;
     unsigned int hBackPorch;
     unsigned int vBackPorch;
-    unsigned int hRefToSync; //always 1
-    unsigned int vRefToSync; //always 1
     unsigned int pclkKHz;
-    unsigned int bitsPerPixel; //always 0
-    unsigned int vmode; //always 0
+    unsigned int bitsPerPixel;
+    unsigned int vmode;
+    unsigned int sync;
+    unsigned int unk1;
+    unsigned int reserved;
 };
+
+//# Source: 
+struct AviInfoframe {
+    unsigned int csum;
+    unsigned int scan;
+    unsigned int bar_valid;
+    unsigned int act_fmt_valid;
+    unsigned int rgb_ycc;
+    unsigned int act_format;
+    unsigned int aspect_ratio;
+    unsigned int colorimetry;
+    unsigned int scaling;
+    unsigned int rgb_quant;
+    unsigned int ext_colorimetry;
+    unsigned int it_content;
+    unsigned int video_format;
+    unsigned int pix_rep;
+    unsigned int it_content_type;
+    unsigned int ycc_quant;
+    unsigned int top_bar_end_line_low_byte, top_bar_end_line_high_byte;
+    unsigned int bot_bar_start_line_low_byte, bot_bar_start_line_high_byte;
+    unsigned int left_bar_end_pixel_low_byte, left_bar_end_pixel_high_byte;
+    unsigned int right_bar_start_pixel_low_byte, right_bar_start_pixel_high_byte;
+};
+
+void parseEdidHighestRefreshRate() {
+    SetSysEdid edid_impl = {0};
+    setsysGetEdid(&edid_impl);
+	unsigned char* edid = (unsigned char*)&edid_impl;
+	uint8_t magic[8] = {0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0};
+	if (memcmp(magic, edid, 8)) {
+		#ifdef DEBUG
+		printf("WRONG MAGIC! %d\n", memcmp(magic, edid, 8));
+		#endif
+		return;
+	}
+	SetSysModeLine* timingd = (SetSysModeLine*)calloc(sizeof(SetSysModeLine), 2);
+	memcpy(timingd, &edid[offsetof(SetSysEdid, timing_descriptor)], sizeof(SetSysModeLine)*2);
+	float highestRefreshRate = 0;
+	for (size_t i = 0; i < 2; i++) {
+		SetSysModeLine td = timingd[i];
+		uint32_t width = (uint32_t)td.horizontal_active_pixels_msb << 8 | td.horizontal_active_pixels_lsb;
+		uint32_t height = (uint32_t)td.vertical_active_lines_msb << 8 | td.vertical_active_lines_lsb;
+		uint32_t h_total = width + ((uint32_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb);
+		uint32_t v_total = height + ((uint32_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb);
+		float refreshRate = ((float)(td.pixel_clock * 10000) / (float)(h_total * v_total));
+		#ifdef DEBUG
+		if (td.pixel_clock) printf("Res: %dx%d, pixel clock: %d, refresh rate: %0.4f\n", width, height, td.pixel_clock * 10, refreshRate);
+		#endif
+		if (!td.interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
+		/*
+		if (!td.interlaced && ((width == 1280 && height == 720) || (width == 1920 && height == 1080)) && (refreshRate > 60)) {
+			uint16_t widthSync = (uint16_t)td.horizontal_sync_pulse_width_pixels_msb << 8 | td.horizontal_sync_pulse_width_pixels_lsb;
+			uint16_t heightSync = (uint16_t)td.vertical_sync_pulse_width_lines_msb << 8 | td.vertical_sync_pulse_width_lines_lsb;
+			uint16_t widthFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
+			uint16_t heightFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
+			EdidData.push_back({
+				.pixelClockkHz = (uint32_t)td.pixel_clock * 10,
+				.width = (uint16_t)width,
+				.height = (uint16_t)height,
+				.refreshRate = refreshRate,
+				.widthFrontPorch = widthFrontPorch,
+				.heightFrontPorch = heightFrontPorch,
+				.widthSync = widthSync,
+				.heightSync = heightSync,
+				.widthBackPorch = (uint16_t)(((uint16_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb) - (widthSync + widthFrontPorch)),
+				.heightBackPorch = (uint16_t)(((uint16_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb) - (heightSync + heightFrontPorch))
+			});
+		}
+		*/
+	}
+	#ifdef DEBUG
+	printf("\n");
+	#endif
+	uint8_t extension_count = 0;
+	memcpy(&extension_count, &edid[offsetof(SetSysEdid, extension_count)], 1);
+	if (extension_count != 1) {
+		#ifdef DEBUG
+		printf("More than one extension count!\n");
+		#endif
+	}
+	uint8_t extension_type = 0;
+	memcpy(&extension_type, &edid[offsetof(SetSysEdid, extension_tag)], 1);
+	if (extension_type != 2) {
+		#ifdef DEBUG
+		printf("Wrong extension type!\n");
+		#endif
+		return;
+	}
+	uint8_t dtd_start = 0;
+	memcpy(&dtd_start, &edid[offsetof(SetSysEdid, dtd_start)], 1);
+	if (dtd_start) {
+		uint8_t native_dtd_count = 0;
+		memcpy(&native_dtd_count, &edid[offsetof(SetSysEdid, dtd_start) + 1], 1);
+		native_dtd_count &= 0b1111;
+		SetSysDataBlock* data = (SetSysDataBlock*)calloc(sizeof(SetSysDataBlock), 1);
+		size_t offset = offsetof(SetSysEdid, data_block);
+		memcpy(data, &edid[offset], sizeof(SetSysDataBlock));
+		if (data -> video.block_type != SetSysBlockType_Video) {
+			while (offset < (size_t)offsetof(SetSysEdid, extension_tag)+dtd_start) {
+				offset += 1;
+				offset += data -> video.size;
+				memcpy(data, &edid[offset], sizeof(SetSysDataBlock));
+				if (data -> video.block_type == SetSysBlockType_Video) break;
+			}
+		}
+		if (data -> video.block_type == SetSysBlockType_Video) {
+			for (size_t i = 0; i < data -> video.size; i++) {
+				uint8_t index = data->video.svd[i].svd_index;
+				if (index > 64) memcpy(&index, &data->video.svd[i], 1);
+				const struct timings* timing = find_vic_id(index);
+				double refreshRate = (double)(timing->pixclk_khz * 1000) / ((timing->hact + timing->hfp + timing->hsync + timing->hbp) * ((timing->vact / (timing->interlaced ? 2 : 1)) + timing->vfp + timing->vsync + timing->vbp));
+				#ifdef DEBUG
+				printf("VIC: %u%s, Res: %ux%u%s, refresh rate: %.4f\n", index, ((index <= 64 && data -> video.svd[i].native_flag) ? " (native)" : ""), timing->hact, timing->vact, (timing->interlaced ? "i" : ""), refreshRate);
+				#endif
+				if (!timing->interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
+				/*
+				if (!timing->interlaced && ((timing->hact == 1280 && timing->vact == 720) || (timing->hact == 1920 && timing->vact == 1080)) && (refreshRate > 60)) {
+					EdidData.push_back({
+						.pixelClockkHz = timing->pixclk_khz,
+						.width = (uint16_t)timing->hact,
+						.height = (uint16_t)timing->vact,
+						.refreshRate = (float)refreshRate,
+						.widthFrontPorch = (uint16_t)timing->vfp,
+						.heightFrontPorch = (uint16_t)timing->hfp,
+						.widthSync = (uint16_t)timing->hsync,
+						.heightSync = (uint16_t)timing->vsync,
+						.widthBackPorch = (uint16_t)timing->hbp,
+						.heightBackPorch = (uint16_t)timing->vbp
+					});
+				}
+				*/
+			}
+			#ifdef DEBUG
+			printf("\n");
+			#endif
+		}
+		free(data);
+		SetSysModeLine* modeline = (SetSysModeLine*)calloc(sizeof(SetSysModeLine), 5);
+		memcpy(modeline, &edid[offsetof(SetSysEdid, extension_tag)+dtd_start], sizeof(SetSysModeLine) * 5);
+		for (size_t i = 0; i < 5; i++) {
+			SetSysModeLine td = modeline[i];
+			uint32_t width = (uint32_t)td.horizontal_active_pixels_msb << 8 | td.horizontal_active_pixels_lsb;
+			uint32_t height = (uint32_t)td.vertical_active_lines_msb << 8 | td.vertical_active_lines_lsb;
+			if (width <= 1 || height <= 1) continue;
+			uint32_t h_total = width + ((uint32_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb);
+			uint32_t v_total = height + ((uint32_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb);
+			float refreshRate = ((float)(td.pixel_clock * 10000) / (float)(h_total * v_total));
+			#ifdef DEBUG
+			if (td.pixel_clock) printf("Res: %dx%d, pixel clock: %d, refresh rate: %0.4f\n", width, height, td.pixel_clock * 10, refreshRate);
+			#endif
+			if (!td.interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
+			/*
+			if (!td.interlaced && ((width == 1280 && height == 720) || (width == 1920 && height == 1080)) && (refreshRate > 60)) {
+				uint16_t widthSync = (uint16_t)td.horizontal_sync_pulse_width_pixels_msb << 8 | td.horizontal_sync_pulse_width_pixels_lsb;
+				uint16_t heightSync = (uint16_t)td.vertical_sync_pulse_width_lines_msb << 8 | td.vertical_sync_pulse_width_lines_lsb;
+				uint16_t widthFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
+				uint16_t heightFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
+				EdidData.push_back({
+				.pixelClockkHz = (uint32_t)td.pixel_clock * 10,
+				.width = (uint16_t)width,
+				.height = (uint16_t)height,
+				.refreshRate = refreshRate,
+				.widthFrontPorch = widthFrontPorch,
+				.heightFrontPorch = heightFrontPorch,
+				.widthSync = widthSync,
+				.heightSync = heightSync,
+				.widthBackPorch = (uint16_t)(((uint16_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb) - (widthSync + widthFrontPorch)),
+				.heightBackPorch = (uint16_t)(((uint16_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb) - (heightSync + heightFrontPorch))
+				});
+			}
+			*/
+		}
+		free(modeline);
+	}
+	dockedHighestRefreshRate = highestRefreshRate;
+}
 
 void setDefaultDockedSettings() {
     for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
@@ -241,8 +458,8 @@ void LoadDockedModeAllowedSave() {
         else SaltySD_printf("SaltySD: Couldn't dump EDID to sdcard!\n", &path[31]);
     }
     snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
-    FILE* file = fopen(path, "r");
-    if (file) {
+    if (file_or_directory_exists(path) == true) {
+        FILE* file = fopen(path, "r");
         SaltySD_printf("SaltySD: %s opened successfully!\n", &path[31]);
         fseek(file, 0, 2);
         size_t size = ftell(file);
@@ -311,6 +528,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
     memcpy(&base, (void*)(clkVirtAddr + 0xD0), 4);
     memcpy(&misc, (void*)(clkVirtAddr + 0xDC), 4);
     uint32_t value = ((base.PLLD_DIVN / base.PLLD_DIVM) * 10) / 4;
+    static uint8_t last_vActive = 0;
     if (value == 0 || value == 80) { //We are in docked mode
         if (isLite || !canChangeRefreshRateDocked)
             return false;
@@ -318,14 +536,38 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
         if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
             return false;
         }
-        struct nvdcMode DISPLAY_B = {0};
-        Result nvrc = nvIoctl(fd, NVDISP_GET_MODE, &DISPLAY_B);
+        struct nvdcMode2 DISPLAY_B = {0};
+        Result nvrc = nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B);
         if (R_FAILED(nvrc)) {
-            SaltySD_printf("SaltySD: NVDISP_GET_MODE failed! rc: 0x%x\n", nvrc);
+            SaltySD_printf("SaltySD: NVDISP_GET_MODE2 failed! rc: 0x%x\n", nvrc);
             nvClose(fd);
             return false;
         }
         if (!DISPLAY_B.pclkKHz) {
+            nvClose(fd);
+            return false;
+        }
+        if (DISPLAY_B.vActive != last_vActive) {
+            last_vActive = DISPLAY_B.vActive;
+            if (DISPLAY_B.vActive != 720 && DISPLAY_B.vActive != 1080) {
+                for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
+                    if (DockedModeRefreshRateAllowedValues[i] <= dockedHighestRefreshRate) {
+                        DockedModeRefreshRateAllowed[i] = false;
+                    }
+                }
+                DockedModeRefreshRateAllowed[4] = true;
+            }
+            else {
+                LoadDockedModeAllowedSave();
+                if (DISPLAY_B.vActive == 720) for (size_t i = 5; i < sizeof(DockedModeRefreshRateAllowed); i++) {
+                    if (DockedModeRefreshRateAllowedValues[i] > dockedHighestRefreshRate) {
+                        break;
+                    }
+                    DockedModeRefreshRateAllowed[i] = true;
+                }
+            }
+        }
+        if (((DISPLAY_B.vActive == 720 && DISPLAY_B.hActive == 1280) || (DISPLAY_B.vActive == 1080 && DISPLAY_B.hActive == 1920)) == false) {
             nvClose(fd);
             return false;
         }
@@ -364,21 +606,51 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
             else itr++;
         }
         if (refreshRateNow == DockedModeRefreshRateAllowedValues[itr]) {
-            if (nx_fps) nx_fps->displaySync = DockedModeRefreshRateAllowedValues[itr];
+            if (nx_fps) nx_fps->CurrentRefreshRate = DockedModeRefreshRateAllowedValues[itr];
             nvClose(fd);
             return true;
         }
         
         if (itr >= 0 && itr < sizeof(DockedModeRefreshRateAllowed)) {
-            uint32_t clock = ((h_total * v_total) * DockedModeRefreshRateAllowedValues[itr]) / 1000;
-            DISPLAY_B.pclkKHz = clock;
-            nvrc = nvIoctl(fd, NVDISP_VALIDATE_MODE, &DISPLAY_B);
-            if (R_SUCCEEDED(nvrc)) {
-                nvrc = nvIoctl(fd, NVDISP_SET_MODE, &DISPLAY_B);
-                if (R_FAILED(nvrc)) SaltySD_printf("SaltySD: NVDISP_SET_MODE failed! rc: 0x%x\n", nvrc);
-                else if (nx_fps) nx_fps->displaySync = DockedModeRefreshRateAllowedValues[itr];
+            if (DISPLAY_B.vActive == 720) {
+                uint32_t clock = ((h_total * v_total) * DockedModeRefreshRateAllowedValues[itr]) / 1000;
+                DISPLAY_B.pclkKHz = clock;
             }
-            else SaltySD_printf("SaltySD: NVDISP_VALIDATE_MODE failed! rc: 0x%x, pclkKHz: %d, Hz: %d\n", nvrc, clock, DockedModeRefreshRateAllowedValues[itr]);
+            else {
+                DISPLAY_B.hFrontPorch = dockedTimings1080p[itr].hFrontPorch;
+                DISPLAY_B.hSyncWidth = dockedTimings1080p[itr].hSyncWidth;
+                DISPLAY_B.hBackPorch = dockedTimings1080p[itr].hBackPorch;
+                DISPLAY_B.vFrontPorch = dockedTimings1080p[itr].vFrontPorch;
+                DISPLAY_B.vSyncWidth = dockedTimings1080p[itr].vSyncWidth;
+                DISPLAY_B.vBackPorch = dockedTimings1080p[itr].vBackPorch;
+                DISPLAY_B.pclkKHz = dockedTimings1080p[itr].pixelClock_kHz;
+                DISPLAY_B.vmode = (DockedModeRefreshRateAllowedValues[itr] >= 100 ? 0x400000 : 0x200000);
+                DISPLAY_B.unk1 = (DockedModeRefreshRateAllowedValues[itr] >= 100 ? 0x80 : 0);
+                DISPLAY_B.sync = 3;
+                DISPLAY_B.bitsPerPixel = 24;
+            }
+            nvrc = nvIoctl(fd, NVDISP_VALIDATE_MODE2, &DISPLAY_B);
+            if (R_SUCCEEDED(nvrc)) {
+                nvrc = nvIoctl(fd, NVDISP_SET_MODE2, &DISPLAY_B);
+                if (R_FAILED(nvrc)) SaltySD_printf("SaltySD: NVDISP_SET_MODE2 failed! rc: 0x%x\n", nvrc);
+                else if (nx_fps) nx_fps->CurrentRefreshRate = DockedModeRefreshRateAllowedValues[itr];
+                if (DISPLAY_B.vActive == 1080) {
+                    struct AviInfoframe frame = {0};
+                    nvrc = nvIoctl(fd, NVDISP_GET_AVI_INFOFRAME, &frame);
+                    if (R_FAILED(nvrc)) SaltySD_printf("SaltySD: NVDISP_GET_AVI_INFOFRAME failed! rc: 0x%x\n", nvrc);
+                    else {
+                        /*
+                         * HOS seems to reject VICs used for 1080p 100 and 120 Hz, it replaces them with 0.
+                         * This can be helpful in some cases where displays treat 0 as "figure it out yourself"
+                         */
+                        frame.video_format = dockedTimings1080p[itr].VIC;
+                        nvrc = nvIoctl(fd, NVDISP_SET_AVI_INFOFRAME, &frame);
+                        if (R_FAILED(nvrc)) SaltySD_printf("SaltySD: NVDISP_SET_AVI_INFOFRAME failed! rc: 0x%x\n", nvrc);
+                        else if (nx_fps) nx_fps->CurrentRefreshRate = DockedModeRefreshRateAllowedValues[itr];
+                    }
+                }
+            }
+            else SaltySD_printf("SaltySD: NVDISP_VALIDATE_MODE2 failed! rc: 0x%x, pclkKHz: %d, Hz: %d\n", nvrc, clock, DockedModeRefreshRateAllowedValues[itr]);
         }
         nvClose(fd);
         return true;
@@ -411,7 +683,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
     uint16_t refreshRateNow = pixelClock / (DSI_CLOCK_HZ / 60);
 
     if (refreshRateNow == new_refreshRate) {
-        if (nx_fps) nx_fps->displaySync = new_refreshRate;
+        if (nx_fps) nx_fps->CurrentRefreshRate = new_refreshRate;
         return true;
     }
 
@@ -426,7 +698,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
 
     memcpy((void*)(clkVirtAddr + 0xD0), &base, 4);
     memcpy((void*)(clkVirtAddr + 0xDC), &misc, 4);
-    if (nx_fps) nx_fps->displaySync = new_refreshRate;
+    if (nx_fps) nx_fps->CurrentRefreshRate = new_refreshRate;
     return true;
 }
 
@@ -466,13 +738,14 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
             else {
                 tick = 0;
                 LoadDockedModeAllowedSave();
+                parseEdidHighestRefreshRate();
                 canChangeRefreshRateDocked = true;
             }
         }
         uint32_t fd = 0;
         if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
-            struct nvdcMode DISPLAY_B = {0};
-            if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE, &DISPLAY_B))) {
+            struct nvdcMode2 DISPLAY_B = {0};
+            if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B))) {
                 if (!DISPLAY_B.pclkKHz) {
                     nvClose(fd);
                     return false;
@@ -506,6 +779,8 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
     *out_refreshRate = value;
     if (sh_addr) 
         *(uint8_t*)(sh_addr + 1) = (uint8_t)value;
+    if (nx_fps)
+        nx_fps -> CurrentRefreshRate = (uint8_t)value;
     return true;
 }
 
@@ -1187,7 +1462,16 @@ Result handleServiceCmd(int cmd)
             unsigned int Hz_50: 1;
             unsigned int Hz_55: 1;
             unsigned int Hz_60: 1;
-            unsigned int reserved: 27;
+            unsigned int Hz_70: 1;
+            unsigned int Hz_72: 1;
+            unsigned int Hz_75: 1;
+            unsigned int Hz_80: 1;
+            unsigned int Hz_90: 1;
+            unsigned int Hz_95: 1;
+            unsigned int Hz_100: 1;
+            unsigned int Hz_110: 1;
+            unsigned int Hz_120: 1;
+            unsigned int reserved: 18;
         } DockedRefreshRates;
 
         memcpy(&DockedRefreshRates, &(resp -> refreshRate), 4);
@@ -1196,6 +1480,15 @@ Result handleServiceCmd(int cmd)
         DockedModeRefreshRateAllowed[2] = DockedRefreshRates.Hz_50;
         DockedModeRefreshRateAllowed[3] = DockedRefreshRates.Hz_55;
         DockedModeRefreshRateAllowed[4] = true;
+        DockedModeRefreshRateAllowed[5] = DockedRefreshRates.Hz_70;
+        DockedModeRefreshRateAllowed[6] = DockedRefreshRates.Hz_72;
+        DockedModeRefreshRateAllowed[7] = DockedRefreshRates.Hz_75;
+        DockedModeRefreshRateAllowed[8] = DockedRefreshRates.Hz_80;
+        DockedModeRefreshRateAllowed[9] = DockedRefreshRates.Hz_90;
+        DockedModeRefreshRateAllowed[10] = DockedRefreshRates.Hz_95;
+        DockedModeRefreshRateAllowed[11] = DockedRefreshRates.Hz_100;
+        DockedModeRefreshRateAllowed[12] = DockedRefreshRates.Hz_110;
+        DockedModeRefreshRateAllowed[13] = DockedRefreshRates.Hz_120;
         SaltySD_printf("SaltySD: cmd 13 handler\n");
 
         ret = 0;
@@ -1449,15 +1742,22 @@ int main(int argc, char *argv[])
                     refreshRate = 0;
                 }
             }
-            else if (displaySync && (!isOLED || isDocked)) {
-                uint32_t temp_refreshRate = 0;
-                GetDisplayRefreshRate(&temp_refreshRate, true);
-                uint32_t check_refresh_rate = refreshRate;
-                if (nx_fps && nx_fps->forceOriginalRefreshRate && (!isDocked || (isDocked && !dontForce60InDocked))) {
-                    check_refresh_rate = 60;
+            else {
+                if (displaySync && (!isOLED || isDocked)) {
+                    uint32_t temp_refreshRate = 0;
+                    GetDisplayRefreshRate(&temp_refreshRate, true);
+                    uint32_t check_refresh_rate = refreshRate;
+                    if (nx_fps && nx_fps->FPSlocked) check_refresh_rate = nx_fps->FPSlocked;
+                    if (nx_fps && nx_fps->forceOriginalRefreshRate && (!isDocked || (isDocked && !dontForce60InDocked))) {
+                        check_refresh_rate = 60;
+                    }
+                    if (temp_refreshRate != check_refresh_rate)
+                        SetDisplayRefreshRate(check_refresh_rate);
                 }
-                if (temp_refreshRate != check_refresh_rate)
-                    SetDisplayRefreshRate(check_refresh_rate);
+                if (!isDocked && nx_fps && nx_fps->FPSlocked > HandheldModeRefreshRateAllowed.max) {
+                    nx_fps->FPSlocked = HandheldModeRefreshRateAllowed.max;
+                    refreshRate = HandheldModeRefreshRateAllowed.max;
+                }
             }
         }
         uint32_t temp = 0;
