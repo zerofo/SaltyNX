@@ -551,9 +551,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
             nvClose(fd);
             return false;
         }
-		FILE* file = fopen("sdmc:/SaltySD/test.flag", "rb");
-		if (file) fclose(file);
-        else if (DISPLAY_B.vActive != last_vActive) {
+        if ((file_or_directory_exists("sdmc:/SaltySD/test.flag") == false) && DISPLAY_B.vActive != last_vActive) {
             last_vActive = DISPLAY_B.vActive;
             if (DISPLAY_B.vActive != 720 && DISPLAY_B.vActive != 1080) {
                 for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
