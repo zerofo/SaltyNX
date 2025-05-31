@@ -24,6 +24,7 @@
 #define	NVDISP_GET_MODE2 0x803C021B
 #define	NVDISP_SET_MODE2 0x403C021C
 #define NVDISP_VALIDATE_MODE2 0xC03C021D
+#define NVDISP_GET_MODE_DB2 0xEF20021E
 #define DSI_CLOCK_HZ 234000000llu
 #define NVDISP_GET_AVI_INFOFRAME 0x80600210
 #define NVDISP_SET_AVI_INFOFRAME 0x40600211
@@ -233,6 +234,11 @@ struct nvdcMode2 {
     unsigned int reserved;
 };
 
+struct nvdcModeDB2 {
+   struct nvdcMode2 modes[201];
+   unsigned int num_modes;
+};
+
 //# Source: 
 struct AviInfoframe {
     unsigned int csum;
@@ -257,157 +263,25 @@ struct AviInfoframe {
     unsigned int right_bar_start_pixel_low_byte, right_bar_start_pixel_high_byte;
 };
 
-void parseEdidHighestRefreshRate() {
-    SetSysEdid edid_impl = {0};
-    setsysGetEdid(&edid_impl);
-	unsigned char* edid = (unsigned char*)&edid_impl;
-	uint8_t magic[8] = {0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0};
-	if (memcmp(magic, edid, 8)) {
-		#ifdef DEBUG
-		printf("WRONG MAGIC! %d\n", memcmp(magic, edid, 8));
-		#endif
-		return;
-	}
-	SetSysModeLine* timingd = (SetSysModeLine*)calloc(sizeof(SetSysModeLine), 2);
-	memcpy(timingd, &edid[offsetof(SetSysEdid, timing_descriptor)], sizeof(SetSysModeLine)*2);
-	float highestRefreshRate = 0;
-	for (size_t i = 0; i < 2; i++) {
-		SetSysModeLine td = timingd[i];
-		uint32_t width = (uint32_t)td.horizontal_active_pixels_msb << 8 | td.horizontal_active_pixels_lsb;
-		uint32_t height = (uint32_t)td.vertical_active_lines_msb << 8 | td.vertical_active_lines_lsb;
-		uint32_t h_total = width + ((uint32_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb);
-		uint32_t v_total = height + ((uint32_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb);
-		float refreshRate = ((float)(td.pixel_clock * 10000) / (float)(h_total * v_total));
-		#ifdef DEBUG
-		if (td.pixel_clock) printf("Res: %dx%d, pixel clock: %d, refresh rate: %0.4f\n", width, height, td.pixel_clock * 10, refreshRate);
-		#endif
-		if (!td.interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
-		/*
-		if (!td.interlaced && ((width == 1280 && height == 720) || (width == 1920 && height == 1080)) && (refreshRate > 60)) {
-			uint16_t widthSync = (uint16_t)td.horizontal_sync_pulse_width_pixels_msb << 8 | td.horizontal_sync_pulse_width_pixels_lsb;
-			uint16_t heightSync = (uint16_t)td.vertical_sync_pulse_width_lines_msb << 8 | td.vertical_sync_pulse_width_lines_lsb;
-			uint16_t widthFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
-			uint16_t heightFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
-			EdidData.push_back({
-				.pixelClockkHz = (uint32_t)td.pixel_clock * 10,
-				.width = (uint16_t)width,
-				.height = (uint16_t)height,
-				.refreshRate = refreshRate,
-				.widthFrontPorch = widthFrontPorch,
-				.heightFrontPorch = heightFrontPorch,
-				.widthSync = widthSync,
-				.heightSync = heightSync,
-				.widthBackPorch = (uint16_t)(((uint16_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb) - (widthSync + widthFrontPorch)),
-				.heightBackPorch = (uint16_t)(((uint16_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb) - (heightSync + heightFrontPorch))
-			});
-		}
-		*/
-	}
-	#ifdef DEBUG
-	printf("\n");
-	#endif
-	uint8_t extension_count = 0;
-	memcpy(&extension_count, &edid[offsetof(SetSysEdid, extension_count)], 1);
-	if (extension_count != 1) {
-		#ifdef DEBUG
-		printf("More than one extension count!\n");
-		#endif
-	}
-	uint8_t extension_type = 0;
-	memcpy(&extension_type, &edid[offsetof(SetSysEdid, extension_tag)], 1);
-	if (extension_type != 2) {
-		#ifdef DEBUG
-		printf("Wrong extension type!\n");
-		#endif
-		return;
-	}
-	uint8_t dtd_start = 0;
-	memcpy(&dtd_start, &edid[offsetof(SetSysEdid, dtd_start)], 1);
-	if (dtd_start) {
-		uint8_t native_dtd_count = 0;
-		memcpy(&native_dtd_count, &edid[offsetof(SetSysEdid, dtd_start) + 1], 1);
-		native_dtd_count &= 0b1111;
-		SetSysDataBlock* data = (SetSysDataBlock*)calloc(sizeof(SetSysDataBlock), 1);
-		size_t offset = offsetof(SetSysEdid, data_block);
-		memcpy(data, &edid[offset], sizeof(SetSysDataBlock));
-		if (data -> video.block_type != SetSysBlockType_Video) {
-			while (offset < (size_t)offsetof(SetSysEdid, extension_tag)+dtd_start) {
-				offset += 1;
-				offset += data -> video.size;
-				memcpy(data, &edid[offset], sizeof(SetSysDataBlock));
-				if (data -> video.block_type == SetSysBlockType_Video) break;
-			}
-		}
-		if (data -> video.block_type == SetSysBlockType_Video) {
-			for (size_t i = 0; i < data -> video.size; i++) {
-				uint8_t index = data->video.svd[i].svd_index;
-				if (index > 64) memcpy(&index, &data->video.svd[i], 1);
-				const struct timings* timing = find_vic_id(index);
-				double refreshRate = (double)(timing->pixclk_khz * 1000) / ((timing->hact + timing->hfp + timing->hsync + timing->hbp) * ((timing->vact / (timing->interlaced ? 2 : 1)) + timing->vfp + timing->vsync + timing->vbp));
-				#ifdef DEBUG
-				printf("VIC: %u%s, Res: %ux%u%s, refresh rate: %.4f\n", index, ((index <= 64 && data -> video.svd[i].native_flag) ? " (native)" : ""), timing->hact, timing->vact, (timing->interlaced ? "i" : ""), refreshRate);
-				#endif
-				if (!timing->interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
-				/*
-				if (!timing->interlaced && ((timing->hact == 1280 && timing->vact == 720) || (timing->hact == 1920 && timing->vact == 1080)) && (refreshRate > 60)) {
-					EdidData.push_back({
-						.pixelClockkHz = timing->pixclk_khz,
-						.width = (uint16_t)timing->hact,
-						.height = (uint16_t)timing->vact,
-						.refreshRate = (float)refreshRate,
-						.widthFrontPorch = (uint16_t)timing->vfp,
-						.heightFrontPorch = (uint16_t)timing->hfp,
-						.widthSync = (uint16_t)timing->hsync,
-						.heightSync = (uint16_t)timing->vsync,
-						.widthBackPorch = (uint16_t)timing->hbp,
-						.heightBackPorch = (uint16_t)timing->vbp
-					});
-				}
-				*/
-			}
-			#ifdef DEBUG
-			printf("\n");
-			#endif
-		}
-		free(data);
-		SetSysModeLine* modeline = (SetSysModeLine*)calloc(sizeof(SetSysModeLine), 5);
-		memcpy(modeline, &edid[offsetof(SetSysEdid, extension_tag)+dtd_start], sizeof(SetSysModeLine) * 5);
-		for (size_t i = 0; i < 5; i++) {
-			SetSysModeLine td = modeline[i];
-			uint32_t width = (uint32_t)td.horizontal_active_pixels_msb << 8 | td.horizontal_active_pixels_lsb;
-			uint32_t height = (uint32_t)td.vertical_active_lines_msb << 8 | td.vertical_active_lines_lsb;
-			if (width <= 1 || height <= 1) continue;
-			uint32_t h_total = width + ((uint32_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb);
-			uint32_t v_total = height + ((uint32_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb);
-			float refreshRate = ((float)(td.pixel_clock * 10000) / (float)(h_total * v_total));
-			#ifdef DEBUG
-			if (td.pixel_clock) printf("Res: %dx%d, pixel clock: %d, refresh rate: %0.4f\n", width, height, td.pixel_clock * 10, refreshRate);
-			#endif
-			if (!td.interlaced && refreshRate > highestRefreshRate) highestRefreshRate = refreshRate;
-			/*
-			if (!td.interlaced && ((width == 1280 && height == 720) || (width == 1920 && height == 1080)) && (refreshRate > 60)) {
-				uint16_t widthSync = (uint16_t)td.horizontal_sync_pulse_width_pixels_msb << 8 | td.horizontal_sync_pulse_width_pixels_lsb;
-				uint16_t heightSync = (uint16_t)td.vertical_sync_pulse_width_lines_msb << 8 | td.vertical_sync_pulse_width_lines_lsb;
-				uint16_t widthFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
-				uint16_t heightFrontPorch = (uint16_t)td.horizontal_sync_offset_pixels_msb << 8 | td.horizontal_sync_offset_pixels_lsb;
-				EdidData.push_back({
-				.pixelClockkHz = (uint32_t)td.pixel_clock * 10,
-				.width = (uint16_t)width,
-				.height = (uint16_t)height,
-				.refreshRate = refreshRate,
-				.widthFrontPorch = widthFrontPorch,
-				.heightFrontPorch = heightFrontPorch,
-				.widthSync = widthSync,
-				.heightSync = heightSync,
-				.widthBackPorch = (uint16_t)(((uint16_t)td.horizontal_blanking_pixels_msb << 8 | td.horizontal_blanking_pixels_lsb) - (widthSync + widthFrontPorch)),
-				.heightBackPorch = (uint16_t)(((uint16_t)td.vertical_blanking_lines_msb << 8 | td.vertical_blanking_lines_lsb) - (heightSync + heightFrontPorch))
-				});
-			}
-			*/
-		}
-		free(modeline);
-	}
-	dockedHighestRefreshRate = highestRefreshRate;
+void getDockedHighestRefreshRate() {
+    uint8_t highestRefreshRate = 60;
+    uint32_t fd = 0;
+    if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+        dockedHighestRefreshRate = 60;
+        return;
+    }
+    struct nvdcModeDB2 DB2 = {0};
+    Result nvrc = nvIoctl(fd, NVDISP_GET_MODE_DB2, &DB2);
+    nvClose(fd);
+    if (R_SUCCEEDED(nvrc)) for (size_t i = 0; i < DB2.num_modes; i++) {
+        if (!DB2.modes[i].vActive || !DB2.modes[i].hActive) 
+            continue;
+        uint32_t v_total = DB2.modes[i].vActive + DB2.modes[i].vSyncWidth + DB2.modes[i].vFrontPorch + DB2.modes[i].vBackPorch;
+        uint32_t h_total = DB2.modes[i].hActive + DB2.modes[i].hSyncWidth + DB2.modes[i].hFrontPorch + DB2.modes[i].hBackPorch;
+        double refreshRate = round((double)(DB2.modes[i].pclkKHz * 1000) / (double)(v_total * h_total));
+        if (highestRefreshRate < (uint8_t)refreshRate) highestRefreshRate = (uint8_t)refreshRate;
+    }
+    dockedHighestRefreshRate = highestRefreshRate;
 }
 
 void setDefaultDockedSettings() {
@@ -738,7 +612,7 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
             else {
                 tick = 0;
                 LoadDockedModeAllowedSave();
-                parseEdidHighestRefreshRate();
+                getDockedHighestRefreshRate();
                 canChangeRefreshRateDocked = true;
             }
         }
@@ -1526,6 +1400,29 @@ Result handleServiceCmd(int cmd)
         SaltySD_printf("SaltySD: cmd 15 handler\n");
 
         ret = 0;
+    }
+    else if (cmd == 16) // GetDockedHighestRefreshRate
+    {
+        IpcParsedCommand r = {0};
+        ipcParse(&r);
+
+        SaltySD_printf("SaltySD: cmd 16 handler\n");
+        
+        // Ship off results
+        struct {
+            u64 magic;
+            u64 result;
+            u64 refreshRate;
+            u64 reserved;
+        } *raw;
+
+        raw = ipcPrepareHeader(&c, sizeof(*raw));
+
+        raw->magic = SFCO_MAGIC;
+        raw->result = 0;
+        raw->refreshRate = dockedHighestRefreshRate;
+
+        return 0;
     }
     else
     {
