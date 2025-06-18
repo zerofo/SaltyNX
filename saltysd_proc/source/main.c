@@ -586,6 +586,7 @@ bool setNvDispDockedRefreshRate(uint32_t new_refreshRate) {
         }
         else SaltySD_printf("SaltySD: NVDISP_VALIDATE_MODE2 failed! rc: 0x%x, pclkKHz: %d, Hz: %d\n", nvrc, clock, DockedModeRefreshRateAllowedValues[itr]);
     }
+    nvClose(fd);
     return true;
 }
 
