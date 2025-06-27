@@ -411,7 +411,7 @@ void getDockedHighestRefreshRate() {
     Result nvrc = nvIoctl(fd, NVDISP_GET_MODE_DB2, &DB2);
     if (R_SUCCEEDED(nvrc)) {
         for (size_t i = 0; i < DB2.num_modes; i++) {
-            if (!DB2.modes[i].vActive || !DB2.modes[i].hActive || DB2.modes[i].hActive < 1920 || DB2.modes[i].vActive < 1080) 
+            if (DB2.modes[i].hActive < 1920 || DB2.modes[i].vActive < 1080) 
                 continue;
             uint32_t v_total = DB2.modes[i].vActive + DB2.modes[i].vSyncWidth + DB2.modes[i].vFrontPorch + DB2.modes[i].vBackPorch;
             uint32_t h_total = DB2.modes[i].hActive + DB2.modes[i].hSyncWidth + DB2.modes[i].hFrontPorch + DB2.modes[i].hBackPorch;
