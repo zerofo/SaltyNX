@@ -29,6 +29,7 @@
 #define NVDISP_GET_AVI_INFOFRAME 0x80600210
 #define NVDISP_SET_AVI_INFOFRAME 0x40600211
 #define NVDISP_GET_PANEL_DATA 0xC01C0226
+#define NVDISP_PANEL_GET_VENDOR_ID 0xC003021A
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -79,6 +80,7 @@ u64 exception = 0x0;
 SharedMemory _sharedMemory = {0};
 size_t reservedSharedMemory = 0;
 uint64_t clkVirtAddr = 0;
+uint64_t dsiVirtAddr = 0;
 bool displaySync = false;
 uint8_t refreshRate = 0;
 s64 lastAppPID = -1;
@@ -90,6 +92,9 @@ bool dontForce60InDocked = false;
 bool matchLowestDocked = false;
 uint8_t dockedHighestRefreshRate = 60;
 uint8_t dockedLinkRate = 10;
+bool isRetroSUPER = false;
+bool isPossiblySpoofedRetro = false;
+bool wasRetroSuperTurnedOff = false;
 
 void __libnx_initheap(void)
 {
@@ -179,12 +184,30 @@ struct dockedTimings dockedTimings1080p[] =    {{8, 32, 40, 7, 8, 6, 0, 88080}, 
 static_assert(sizeof(DockedModeRefreshRateAllowedValues) == sizeof(DockedModeRefreshRateAllowed));
 static_assert((sizeof(dockedTimings1080p) / sizeof(dockedTimings1080p[0])) == sizeof(DockedModeRefreshRateAllowedValues));
 
+struct handheldTimings {
+    uint8_t hSyncWidth;
+    uint16_t hFrontPorch;
+    uint8_t hBackPorch;
+    uint8_t vSyncWidth;
+    uint16_t vFrontPorch;
+    uint8_t vBackPorch;
+    uint32_t pixelClock_kHz;
+} NX_PACKED;
+
+struct handheldTimings handheldTimingsRETRO[] = {{72, 136, 72, 1, 660, 9, 78000},
+                                                {72, 136, 72, 1, 443, 9, 77985},
+                                                {72, 136, 72, 1, 270, 9, 78000},
+                                                {72, 136, 72, 1, 128, 9, 77990},
+                                                {72, 136, 72, 1, 10, 9, 78000}};
+
 struct MinMax {
     u8 min;
     u8 max;
 };
 
 struct MinMax HandheldModeRefreshRateAllowed = {40, 60};
+
+static_assert((sizeof(handheldTimingsRETRO) / sizeof(handheldTimingsRETRO[0])) == (((60 - 40) / 5) + 1));
 
 struct PLLD_BASE {
     unsigned int PLLD_DIVM: 8;
@@ -257,6 +280,125 @@ struct dpaux_read_0x100 {
     } set;
 };
 
+void remove_spaces(char* str_trimmed, const char* str_untrimmed)
+{
+  while (str_untrimmed[0] != '\0')
+  {
+    if(!isspace((int)str_untrimmed[0]))
+    {
+      str_trimmed[0] = str_untrimmed[0];
+      str_trimmed++;
+    }
+    str_untrimmed++;
+  }
+  str_trimmed[0] = '\0';
+}
+
+bool file_or_directory_exists(const char *filename)
+{
+    struct stat buffer;
+    return stat(filename, &buffer) == 0 ? true : false;
+}
+
+void changeOLEDGammaSettings(uint32_t cmd, uint32_t* gamma_level, uint32_t size, uint32_t start) {
+    if (!dsiVirtAddr || !gamma_level || !size) return;
+
+    if ((size == 1) && (gamma_level[0] > 255)) gamma_level[0] = 255;
+
+    volatile uint32_t* dsiVirtAddr_impl = (uint32_t*)dsiVirtAddr;
+
+    //Source: https://github.com/CTCaer/hekate/blob/master/bdk/display/di.h
+    #define DSI_VIDEO_MODE_CONTROL        0x4E
+    #define DSI_WR_DATA                   0xA
+    #define DSI_TRIGGER                   0x13
+    #define DSI_TRIGGER_VIDEO             0
+
+
+    #define MIPI_DSI_DCS_SHORT_WRITE_PARAM  0x15
+    #define MIPI_DSI_DCS_LONG_WRITE         0x39
+    #define MIPI_DCS_PRIV_SM_SET_REG_OFFSET 0xB0
+    #define MIPI_DCS_PRIV_SM_SET_ELVSS      0xB1
+
+    dsiVirtAddr_impl[DSI_VIDEO_MODE_CONTROL] = true;
+    svcSleepThread(20000000);
+
+    dsiVirtAddr_impl[DSI_WR_DATA] = MIPI_DSI_DCS_LONG_WRITE | (5 << 8);
+    dsiVirtAddr_impl[DSI_WR_DATA] = 0x5A5A5AE2;
+    dsiVirtAddr_impl[DSI_WR_DATA] = 0x5A;
+    dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+
+    if (cmd != UINT32_MAX) {
+        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_REG_OFFSET | (cmd << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+        dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+
+        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_ELVSS | (gamma_level[0] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+        dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+    }
+    else {
+        uint32_t cmds[6] = {0x19, 0x1A, 0x24, 0x25, 0x3D, 0x3E};
+        for (size_t i = start; i < size; i++) {
+            dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_REG_OFFSET | (cmds[i] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+            dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+
+            dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_ELVSS | (gamma_level[i] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+            dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+        }
+    }
+
+    dsiVirtAddr_impl[DSI_WR_DATA] = MIPI_DSI_DCS_LONG_WRITE | (5 << 8);
+    dsiVirtAddr_impl[DSI_WR_DATA] = 0xA55A5AE2;
+    dsiVirtAddr_impl[DSI_WR_DATA] = 0xA5;
+    dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
+
+    dsiVirtAddr_impl[DSI_VIDEO_MODE_CONTROL] = false;
+    svcSleepThread(20000000);
+}
+
+void correctOledGamma(uint32_t refresh_rate) {
+    static uint32_t last_refresh_rate = 60;
+    if (isDocked || refresh_rate < 45 || refresh_rate > 60) {
+        last_refresh_rate = 60;
+        return;
+    }
+    static int i = 0;
+    if (i != 9) {
+        i++;
+        return;
+    }
+    i = 0;
+    #define loop_amount 3
+    if (refresh_rate == 60) {
+        if (last_refresh_rate == 60) return;
+        uint32_t values[6] = {0, 3, 0, 0, 1, 1};
+        for (size_t i = 0; i < loop_amount; i++) {
+            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
+        }    
+    }
+    else if (refresh_rate == 45) {
+        uint32_t values[6] = {0, 4, 1, 0, 3, 0};
+        if (last_refresh_rate == 45) return;
+        for (size_t i = 0; i < loop_amount; i++) {
+            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
+        }
+    }
+    else if (refresh_rate == 50) {
+        if (last_refresh_rate == 50) return;
+        uint32_t values[6] = {0, 4, 1, 0, 2, 0};
+        for (size_t i = 0; i < loop_amount; i++) {
+            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
+        }    
+    }
+    else if (refresh_rate == 55) {
+        if (last_refresh_rate == 55) return;
+        uint32_t values[6] = {0, 3, 1, 0, 2, 0};
+        for (size_t i = 0; i < loop_amount; i++) {
+            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
+        }    
+    }
+    else return;
+    last_refresh_rate = refresh_rate;
+}
+
 void getDockedHighestRefreshRate() {
     uint8_t highestRefreshRate = 60;
     uint32_t fd = 0;
@@ -267,15 +409,13 @@ void getDockedHighestRefreshRate() {
     }
     struct nvdcModeDB2 DB2 = {0};
     Result nvrc = nvIoctl(fd, NVDISP_GET_MODE_DB2, &DB2);
-    if (R_SUCCEEDED(nvrc)) {
-        for (size_t i = 0; i < DB2.num_modes; i++) {
-            if (!DB2.modes[i].vActive || !DB2.modes[i].hActive || DB2.modes[i].hActive < 1920 || DB2.modes[i].vActive < 1080) 
-                continue;
-            uint32_t v_total = DB2.modes[i].vActive + DB2.modes[i].vSyncWidth + DB2.modes[i].vFrontPorch + DB2.modes[i].vBackPorch;
-            uint32_t h_total = DB2.modes[i].hActive + DB2.modes[i].hSyncWidth + DB2.modes[i].hFrontPorch + DB2.modes[i].hBackPorch;
-            double refreshRate = round((double)(DB2.modes[i].pclkKHz * 1000) / (double)(v_total * h_total));
-            if (highestRefreshRate < (uint8_t)refreshRate) highestRefreshRate = (uint8_t)refreshRate;
-        }
+    if (R_SUCCEEDED(nvrc)) for (size_t i = 0; i < DB2.num_modes; i++) {
+        if (!DB2.modes[i].vActive || !DB2.modes[i].hActive) 
+            continue;
+        uint32_t v_total = DB2.modes[i].vActive + DB2.modes[i].vSyncWidth + DB2.modes[i].vFrontPorch + DB2.modes[i].vBackPorch;
+        uint32_t h_total = DB2.modes[i].hActive + DB2.modes[i].hSyncWidth + DB2.modes[i].hFrontPorch + DB2.modes[i].hBackPorch;
+        double refreshRate = round((double)(DB2.modes[i].pclkKHz * 1000) / (double)(v_total * h_total));
+        if (highestRefreshRate < (uint8_t)refreshRate) highestRefreshRate = (uint8_t)refreshRate;
     }
     else SaltySD_printf("SaltySD: NVDISP_GET_MODE_DB2 for /dev/nvdisp-disp1 returned error 0x%x!\n", nvrc);
     if (highestRefreshRate > DockedModeRefreshRateAllowedValues[sizeof(DockedModeRefreshRateAllowedValues) - 1]) 
@@ -298,26 +438,6 @@ void setDefaultDockedSettings() {
     }
     dontForce60InDocked = false;
     matchLowestDocked = false;
-}
-
-void remove_spaces(char* str_trimmed, const char* str_untrimmed)
-{
-  while (str_untrimmed[0] != '\0')
-  {
-    if(!isspace((int)str_untrimmed[0]))
-    {
-      str_trimmed[0] = str_untrimmed[0];
-      str_trimmed++;
-    }
-    str_untrimmed++;
-  }
-  str_trimmed[0] = '\0';
-}
-
-bool file_or_directory_exists(const char *filename)
-{
-    struct stat buffer;
-    return stat(filename, &buffer) == 0 ? true : false;
 }
 
 void LoadDockedModeAllowedSave() {
@@ -592,13 +712,109 @@ bool setNvDispDockedRefreshRate(uint32_t new_refreshRate) {
     return true;
 }
 
+bool setNvDispHandheldRefreshRate(uint32_t new_refreshRate) {
+    if (!isRetroSUPER)
+        return false;
+    if (!displaySync) {
+        wasRetroSuperTurnedOff = false;
+    }
+    else if (wasRetroSuperTurnedOff) {
+        svcSleepThread(2000000000);
+        wasRetroSuperTurnedOff = false;
+    }
+    svcSleepThread(1000000000);
+    uint32_t fd = 0;
+    if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp0"))) {
+        SaltySD_printf("SaltySD: Couldn't open nvdisp-disp0 for Retro Remake!\n");
+        return false;
+    }
+    struct nvdcMode2 DISPLAY_B = {0};
+    Result nvrc = nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B);
+    if (R_FAILED(nvrc)) {
+        SaltySD_printf("SaltySD: NVDISP_GET_MODE2 failed! rc: 0x%x\n", nvrc);
+        nvClose(fd);
+        return false;
+    }
+    if (!DISPLAY_B.pclkKHz) {
+        nvClose(fd);
+        return false;
+    }
+    if ((DISPLAY_B.vActive == 1280 && DISPLAY_B.hActive == 720) == false) {
+        nvClose(fd);
+        return false;
+    }
+    //720 + 72 + 136 + 72
+    uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
+    //1280 + 1 + 10 + 9
+    uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
+    uint32_t refreshRateNow = ((DISPLAY_B.pclkKHz) * 1000 + 999) / (h_total * v_total);
+
+    if (new_refreshRate > HandheldModeRefreshRateAllowed.max) {
+        new_refreshRate = HandheldModeRefreshRateAllowed.max;
+    }
+    else if (new_refreshRate < HandheldModeRefreshRateAllowed.min) {
+        bool skip = false;
+        for (size_t i = 2; i <= 4; i++) {
+            if (new_refreshRate * i == 60) {
+                skip = true;
+                new_refreshRate = 60;
+                break;
+            }
+        }
+        if (!skip) for (size_t i = 2; i <= (sizeof(handheldTimingsRETRO) / sizeof(handheldTimingsRETRO[0])); i++) {
+            if (((new_refreshRate * i) >= HandheldModeRefreshRateAllowed.min) && ((new_refreshRate * i) <= HandheldModeRefreshRateAllowed.max)) {
+                skip = true;
+                new_refreshRate *= i;
+                break;
+            }
+        }
+        if (!skip) new_refreshRate = 60;
+    }
+    if (new_refreshRate == refreshRateNow) {
+        nvClose(fd);
+        return true;
+    }
+
+    uint32_t itr = (new_refreshRate - 40) / 5;
+
+    DISPLAY_B.hFrontPorch = handheldTimingsRETRO[itr].hFrontPorch;
+    DISPLAY_B.hSyncWidth = handheldTimingsRETRO[itr].hSyncWidth;
+    DISPLAY_B.hBackPorch = handheldTimingsRETRO[itr].hBackPorch;
+    DISPLAY_B.vFrontPorch = handheldTimingsRETRO[itr].vFrontPorch;
+    DISPLAY_B.vSyncWidth = handheldTimingsRETRO[itr].vSyncWidth;
+    DISPLAY_B.vBackPorch = handheldTimingsRETRO[itr].vBackPorch;
+    DISPLAY_B.pclkKHz = handheldTimingsRETRO[itr].pixelClock_kHz;
+
+    nvrc = nvIoctl(fd, NVDISP_VALIDATE_MODE2, &DISPLAY_B);
+    if (R_SUCCEEDED(nvrc)) {
+        for (size_t i = 0; i < 5; i++) {
+            nvrc = nvIoctl(fd, NVDISP_SET_MODE2, &DISPLAY_B);
+        }
+        if (R_FAILED(nvrc)) SaltySD_printf("SaltySD: NVDISP_SET_MODE2 failed! rc: 0x%x\n", nvrc);
+        else if (nx_fps) nx_fps->CurrentRefreshRate = new_refreshRate;
+    }
+    else SaltySD_printf("SaltySD: NVDISP_VALIDATE_MODE2 failed! rc: 0x%x, pclkKHz: %d, Hz: %d\n", nvrc, DISPLAY_B.pclkKHz, new_refreshRate);
+    nvClose(fd);
+    return true;
+}
+
 bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
     if (!new_refreshRate)
         return false;
 
     u32 fd = 0;
-
-    if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+    
+    if (isLite && isPossiblySpoofedRetro) {
+        if (file_or_directory_exists("sdmc:/SaltySD/flags/retro.flag") == true)
+            isRetroSUPER = true;
+        else isRetroSUPER = false;
+    }
+    
+    if (isRetroSUPER && !isDocked) {
+        if (setNvDispHandheldRefreshRate(new_refreshRate) == false)
+            return false;
+    }
+    else if ((!isRetroSUPER && isLite) || R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
         if (setPLLDHandheldRefreshRate(new_refreshRate) == false) 
             return false;
     }
@@ -608,7 +824,8 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
         nvClose(fd);
         bool return_immediately = false;
         if (R_FAILED(rc)) {
-            return_immediately = !setPLLDHandheldRefreshRate(new_refreshRate);
+            if (!isRetroSUPER) return_immediately = !setPLLDHandheldRefreshRate(new_refreshRate);
+            else return_immediately = !setNvDispHandheldRefreshRate(new_refreshRate); //Used only for Retro Remake displays because they are very picky about pixel clock
         }
         else return_immediately = !setNvDispDockedRefreshRate(new_refreshRate);
         if (return_immediately) return false;
@@ -620,6 +837,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
 bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
     if (!clkVirtAddr)
         return false;
+    uint32_t value = 60;
     uintptr_t sh_addr = (uintptr_t)shmemGetAddr(&_sharedMemory);
     if (!internal) {
         // We are using this trick because using nvOpen severes connection 
@@ -630,67 +848,92 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
         }
         else return false;
     }
-    struct PLLD_BASE temp = {0};
-    struct PLLD_MISC misc = {0};
-    memcpy(&temp, (void*)(clkVirtAddr + 0xD0), 4);
-    memcpy(&misc, (void*)(clkVirtAddr + 0xDC), 4);
-    uint32_t value = ((temp.PLLD_DIVN / temp.PLLD_DIVM) * 10) / 4;
-    if (value == 0 || value == 80) { //We are in docked mode
-        if (isLite)
-            return false;
-        isDocked = true;
-        //We must add delay for changing refresh rate when it was just put into dock to avoid doing calculation on default values instead of adjusted ones
-        //From my tests 1 second is enough
-        if (!canChangeRefreshRateDocked) {
-            u32 fd = 0;
-            if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
-                struct dpaux_read_0x100 dpaux = {6, 0x100, 0x10};
-                Result nvrc = nvIoctl(fd, NVDISP_GET_PANEL_DATA, &dpaux);
+    if (isRetroSUPER && !isDocked) {
+        u32 fd = 0;
+        struct PLLD_BASE temp = {0};
+        struct PLLD_MISC misc = {0};
+        memcpy(&temp, (void*)(clkVirtAddr + 0xD0), 4);
+        memcpy(&misc, (void*)(clkVirtAddr + 0xDC), 4);
+        value = ((temp.PLLD_DIVN / temp.PLLD_DIVM) * 10) / 4;
+        if (value != 0 && value != 80) {
+            if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp0"))) {
+                struct nvdcMode2 DISPLAY_B = {0};
+                if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B))) {
+                    uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
+                    uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
+                    uint32_t pixelClock = DISPLAY_B.pclkKHz * 1000 + 999;
+                    value = pixelClock / (h_total * v_total);                
+                }
                 nvClose(fd);
-                if (R_SUCCEEDED(nvrc)) {
-                    LoadDockedModeAllowedSave();
-                    getDockedHighestRefreshRate();
-                    canChangeRefreshRateDocked = true;
-                }
-                else {
-                    svcSleepThread(1'000'000'000);
-                    return false;
-                }
             }
             else return false;
         }
-        uint32_t fd = 0;
-        if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
-            struct nvdcMode2 DISPLAY_B = {0};
-            if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B))) {
-                if (!DISPLAY_B.pclkKHz) {
+        else wasRetroSuperTurnedOff = true;
+    }
+    else if ((!isPossiblySpoofedRetro) || (isPossiblySpoofedRetro && !isRetroSUPER)) {
+        struct PLLD_BASE temp = {0};
+        struct PLLD_MISC misc = {0};
+        memcpy(&temp, (void*)(clkVirtAddr + 0xD0), 4);
+        memcpy(&misc, (void*)(clkVirtAddr + 0xDC), 4);
+        value = ((temp.PLLD_DIVN / temp.PLLD_DIVM) * 10) / 4;
+        if (value == 0 || value == 80) { //We are in docked mode
+            if (isLite)
+                return false;
+            isDocked = true;
+            //We must add delay for changing refresh rate when it was just put into dock to avoid doing calculation on default values instead of adjusted ones
+            //From my tests 1 second is enough
+            if (!canChangeRefreshRateDocked) {
+                u32 fd = 0;
+                if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+                    struct dpaux_read_0x100 dpaux = {6, 0x100, 0x10};
+                    Result nvrc = nvIoctl(fd, NVDISP_GET_PANEL_DATA, &dpaux);
                     nvClose(fd);
-                    return false;
+                    if (R_SUCCEEDED(nvrc)) {
+                        LoadDockedModeAllowedSave();
+                        getDockedHighestRefreshRate();
+                        canChangeRefreshRateDocked = true;
+                    }
+                    else {
+                        svcSleepThread(1'000'000'000);
+                        return false;
+                    }
                 }
-                uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
-                uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
-                uint32_t pixelClock = DISPLAY_B.pclkKHz * 1000 + 999;
-                value = pixelClock / (h_total * v_total);
+                else return false;
+            }
+            uint32_t fd = 0;
+            if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+                struct nvdcMode2 DISPLAY_B = {0};
+                if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B))) {
+                    if (!DISPLAY_B.pclkKHz) {
+                        nvClose(fd);
+                        return false;
+                    }
+                    uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
+                    uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
+                    uint32_t pixelClock = DISPLAY_B.pclkKHz * 1000 + 999;
+                    value = pixelClock / (h_total * v_total);
+                }
+                else value = 60;
+                nvClose(fd);
             }
             else value = 60;
-            nvClose(fd);
         }
-        else value = 60;
-    }
-    else {
-        isDocked = false;
-        canChangeRefreshRateDocked = false;
-        //We are in handheld mode
-        /*
-            Official formula:
-            Fvco = Fref / DIVM * (DIVN + 0.5 + (SDM_DIN / 8192))
-            Fref = CNTFRQ_EL0 / 2
-            Defaults: DIVM = 1, DIVN = 24, SDM_DIN = -1024
+        else if (!isRetroSUPER) {
+            isDocked = false;
+            canChangeRefreshRateDocked = false;
+            //We are in handheld mode
+            /*
+                Official formula:
+                Fvco = Fref / DIVM * (DIVN + 0.5 + (SDM_DIN / 8192))
+                Fref = CNTFRQ_EL0 / 2
+                Defaults: DIVM = 1, DIVN = 24, SDM_DIN = -1024
 
-            My math formula allows avoiding decimals whenever possible
-        */
-        uint32_t pixelClock = (9375 * ((4096 * ((2 * temp.PLLD_DIVN) + 1)) + misc.PLLD_SDM_DIN)) / (8 * temp.PLLD_DIVM);
-        value = pixelClock / (DSI_CLOCK_HZ / 60);
+                My math formula allows avoiding decimals whenever possible
+            */
+            uint32_t pixelClock = (9375 * ((4096 * ((2 * temp.PLLD_DIVN) + 1)) + misc.PLLD_SDM_DIN)) / (8 * temp.PLLD_DIVM);
+            value = pixelClock / (DSI_CLOCK_HZ / 60);
+        }
+        else return false;
     }
     *out_refreshRate = value;
     if (sh_addr) 
@@ -828,11 +1071,8 @@ void hijack_pid(u64 pid)
     Result ret = -1;
     s32 threads = 0;
     Handle debug;
-    
-    FILE* disabled = fopen("sdmc:/SaltySD/flags/disable.flag", "r");
-    
-    if (disabled) {
-        fclose(disabled);
+        
+    if (file_or_directory_exists("sdmc:/SaltySD/flags/disable.flag") == true) {
         SaltySD_printf("SaltySD: Detected disable.flag, aborting bootstrap...\n");
         return;
     }
@@ -1468,6 +1708,29 @@ Result handleServiceCmd(int cmd)
 
         return 0;
     }
+    else if (cmd == 17) // IsPossiblyRetroRemake
+    {
+        IpcParsedCommand r = {0};
+        ipcParse(&r);
+
+        SaltySD_printf("SaltySD: cmd 17 handler\n");
+        
+        // Ship off results
+        struct {
+            u64 magic;
+            u64 result;
+            u64 value;
+            u64 reserved;
+        } *raw;
+
+        raw = ipcPrepareHeader(&c, sizeof(*raw));
+
+        raw->magic = SFCO_MAGIC;
+        raw->result = 0;
+        raw->value = isPossiblySpoofedRetro;
+
+        return 0;
+    }
     else
     {
         ret = 0xEE01;
@@ -1568,18 +1831,41 @@ int main(int argc, char *argv[])
     SetSysProductModel model;
     if (R_SUCCEEDED(setsysGetProductModel(&model))) {
         if (model == SetSysProductModel_Aula) {
-            SaltySD_printf("SaltySD: Detected OLED model. Display Sync is not available in handheld mode.\n");
+            SaltySD_printf("SaltySD: Detected OLED model. Locking minimum refresh rate to 45 Hz.\n");
             isOLED = true;
-            HandheldModeRefreshRateAllowed.min = 60;
+            HandheldModeRefreshRateAllowed.min = 45;
         }
         else if (model == SetSysProductModel_Hoag) {
             isLite = true;
             SaltySD_printf("SaltySD: Detected Lite model. Docked refresh rate will be blocked.\n");
         }
     }
-
+    
+    ABORT_IF_FAILED(nvInitialize(), 6);
+    u32 fd = 0;
+    if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp0"))) {
+        SaltySD_printf("SaltySD: Couldn't open /dev/nvdisp-disp0! Can't check if using Retro Remake display.\n");
+    }
+    else {
+        struct vendorID {
+            u8 vendor;
+            u8 model;
+            u8 board;
+        };
+        struct vendorID _vendorid = {0};
+        Result nvrc = nvIoctl(fd, NVDISP_PANEL_GET_VENDOR_ID, &_vendorid);
+        nvClose(fd);
+        if (R_SUCCEEDED(nvrc)) {
+            if (_vendorid.vendor == 0xE0 || _vendorid.vendor == 0xE1) {
+                isRetroSUPER = true;
+            }
+            if (_vendorid.vendor == 0x20 && _vendorid.model == 0x94 && _vendorid.board == 0x10) {
+                isPossiblySpoofedRetro = true;
+            }
+        }
+    }
+    if (isLite && !isPossiblySpoofedRetro) nvExit();
     if (!isLite) {
-        ABORT_IF_FAILED(nvInitialize(), 6);
         if (file_or_directory_exists("sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays") == false) {
             mkdir("sdmc:/SaltySD/plugins", 69);
             mkdir("sdmc:/SaltySD/plugins/FPSLocker", 420);
@@ -1594,12 +1880,10 @@ int main(int argc, char *argv[])
     serviceClose(ldrDmntSrv);
     memcpy(ldrDmntSrv, &ldrDmntClone, sizeof(Service));
 
-
-    FILE* file = fopen("sdmc:/SaltySD/flags/displaysync.flag", "rb");
-    if (file) {
-        fclose(file);
+    if (file_or_directory_exists("sdmc:/SaltySD/flags/displaysync.flag")) {
         displaySync = true;
     }
+
     // Start our port
     // For some reason, we only have one session maximum (0 reslimit handle related?)	
     svcManageNamedPort(&saltyport, "SaltySD", 1);
@@ -1610,6 +1894,13 @@ int main(int argc, char *argv[])
     if (R_FAILED(rc)) {
         SaltySD_printf("SaltySD: Retrieving virtual address for 0x60006000 failed. RC: 0x%x.\n", rc);
         clkVirtAddr = 0;
+    }
+    if (isOLED) {
+        Result rc = svcQueryMemoryMapping(&dsiVirtAddr, &dummy, 0x54300000, 0x40000);
+        if (R_FAILED(rc)) {
+            SaltySD_printf("SaltySD: Retrieving virtual address for 0x54300000 failed. RC: 0x%x.\n", rc);
+            dsiVirtAddr = 0;
+        }
     }
     shmemCreate(&_sharedMemory, 0x1000, Perm_Rw, Perm_Rw);
     shmemMap(&_sharedMemory);
@@ -1677,6 +1968,9 @@ int main(int argc, char *argv[])
                 lastAppPID = -1;
                 nx_fps = 0;
                 cheatCheck = false;
+                if (shmemGetAddr(&_sharedMemory)) {
+                    memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
+                }
                 if (displaySync) {
                     uint32_t temp_refreshRate = 0;
                     if (GetDisplayRefreshRate(&temp_refreshRate, true) && temp_refreshRate != 60)
@@ -1685,7 +1979,7 @@ int main(int argc, char *argv[])
                 }
             }
             else {
-                if (displaySync && (!isOLED || isDocked)) {
+                if (displaySync) {
                     uint32_t temp_refreshRate = 0;
                     GetDisplayRefreshRate(&temp_refreshRate, true);
                     uint32_t check_refresh_rate = refreshRate;
@@ -1702,8 +1996,10 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        uint32_t temp = 0;
-        GetDisplayRefreshRate(&temp, true);
+        uint32_t crr = 0;
+        GetDisplayRefreshRate(&crr, true);
+        if (isOLED) correctOledGamma(crr);
+
         if (nx_fps) nx_fps -> dontForce60InDocked = dontForce60InDocked;
 
         // Detected new PID
