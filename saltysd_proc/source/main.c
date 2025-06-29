@@ -116,6 +116,7 @@ void __appExit(void)
     fsdevUnmountAll_old();
     smExit();
     setsysExit();
+    nvExit();
 }
 
 void ABORT_IF_FAILED(Result rc, uint8_t ID) {
@@ -1866,7 +1867,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-    if (isLite && !isPossiblySpoofedRetro) nvExit();
     if (!isLite) {
         if (file_or_directory_exists("sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays") == false) {
             mkdir("sdmc:/SaltySD/plugins", 69);
@@ -1874,7 +1874,6 @@ int main(int argc, char *argv[])
             mkdir("sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays", 2137);
         }
     }
-    
     ABORT_IF_FAILED(ldrDmntInitialize(), 7);
     Service* ldrDmntSrv = ldrDmntGetServiceSession();
     Service ldrDmntClone;
