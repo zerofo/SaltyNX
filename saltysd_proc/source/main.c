@@ -356,7 +356,14 @@ void changeOLEDGammaSettings(uint32_t cmd, uint32_t* gamma_level, uint32_t size,
 }
 
 void correctOledGamma(uint32_t refresh_rate) {
+    static bool isInitialized = false;
     static uint32_t last_refresh_rate = 60;
+    if (!isInitialized) {
+        if (file_or_directory_exists("sdmc:/SaltySD/flags/oled_colors.flag") == true) {
+            last_refresh_rate = 61;
+        }
+        isInitialized = true;
+    }
     if (isDocked || refresh_rate < 45 || refresh_rate > 60) {
         if (file_or_directory_exists("sdmc:/SaltySD/flags/oled_colors.flag") == true) {
             last_refresh_rate = 61;
