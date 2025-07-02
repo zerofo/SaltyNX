@@ -18,8 +18,6 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-#include "parse-cta-block.h"
-
 #define MODULE_SALTYSD 420
 #define	NVDISP_GET_MODE2 0x803C021B
 #define	NVDISP_SET_MODE2 0x403C021C
