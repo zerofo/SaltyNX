@@ -301,10 +301,8 @@ bool file_or_directory_exists(const char *filename)
     return stat(filename, &buffer) == 0 ? true : false;
 }
 
-void changeOLEDGammaSettings(uint32_t cmd, uint32_t* gamma_level, uint32_t size, uint32_t start) {
-    if (!dsiVirtAddr || !gamma_level || !size) return;
-
-    if ((size == 1) && (gamma_level[0] > 255)) gamma_level[0] = 255;
+void changeOledElvssSettings(const uint32_t* offsets, const uint32_t* value, uint32_t size, uint32_t start) {
+    if (!dsiVirtAddr || !value || !size) return;
 
     volatile uint32_t* dsiVirtAddr_impl = (uint32_t*)dsiVirtAddr;
 
@@ -328,22 +326,12 @@ void changeOLEDGammaSettings(uint32_t cmd, uint32_t* gamma_level, uint32_t size,
     dsiVirtAddr_impl[DSI_WR_DATA] = 0x5A;
     dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
 
-    if (cmd != UINT32_MAX) {
-        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_REG_OFFSET | (cmd << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+    for (size_t i = start; i < size; i++) {
+        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_REG_OFFSET | ((offsets[i] % 0x100) << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
         dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
 
-        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_ELVSS | (gamma_level[0] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+        dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_ELVSS | (value[i] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
         dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
-    }
-    else {
-        uint32_t cmds[6] = {0x19, 0x1A, 0x24, 0x25, 0x3D, 0x3E};
-        for (size_t i = start; i < size; i++) {
-            dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_REG_OFFSET | (cmds[i] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
-            dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
-
-            dsiVirtAddr_impl[DSI_WR_DATA] = ((MIPI_DCS_PRIV_SM_SET_ELVSS | (gamma_level[i] << 8)) << 8) | MIPI_DSI_DCS_SHORT_WRITE_PARAM;
-            dsiVirtAddr_impl[DSI_TRIGGER] = DSI_TRIGGER_VIDEO;
-        }
     }
 
     dsiVirtAddr_impl[DSI_WR_DATA] = MIPI_DSI_DCS_LONG_WRITE | (5 << 8);
@@ -355,20 +343,10 @@ void changeOLEDGammaSettings(uint32_t cmd, uint32_t* gamma_level, uint32_t size,
     svcSleepThread(20000000);
 }
 
-void correctOledGamma(uint32_t refresh_rate) {
-    static bool isInitialized = false;
+__attribute__((noinline)) void correctOledGamma(uint32_t refresh_rate) {
     static uint32_t last_refresh_rate = 60;
-    if (!isInitialized) {
-        if (file_or_directory_exists("sdmc:/SaltySD/flags/oled_colors.flag") == true) {
-            last_refresh_rate = 61;
-        }
-        isInitialized = true;
-    }
     if (isDocked || refresh_rate < 45 || refresh_rate > 60) {
-        if (file_or_directory_exists("sdmc:/SaltySD/flags/oled_colors.flag") == true) {
-            last_refresh_rate = 61;
-        }
-        else last_refresh_rate = 60;
+        last_refresh_rate = 60;
         return;
     }
     static int i = 0;
@@ -378,35 +356,33 @@ void correctOledGamma(uint32_t refresh_rate) {
     }
     i = 0;
     #define loop_amount 3
+    
+    uint32_t offsets[] = {0x1A, 0x24, 0x25, 0x3D};
+    uint32_t values_set[4] = {2, 0, 0x83, 0};
     if (refresh_rate == 60) {
         if (last_refresh_rate == 60) return;
-        uint32_t values[6] = {0, 3, 0, 0, 1, 1};
-        for (size_t i = 0; i < loop_amount; i++) {
-            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
-        }    
     }
     else if (refresh_rate == 45) {
-        uint32_t values[6] = {0, 4, 1, 0, 3, 0};
+        uint32_t values[4] = {4, 1, 0, 3};
         if (last_refresh_rate == 45) return;
-        for (size_t i = 0; i < loop_amount; i++) {
-            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
-        }
+        memcpy(values_set, values, 16);
+
     }
     else if (refresh_rate == 50) {
         if (last_refresh_rate == 50) return;
-        uint32_t values[6] = {0, 4, 1, 0, 2, 0};
-        for (size_t i = 0; i < loop_amount; i++) {
-            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
-        }    
+        uint32_t values[4] = {4, 1, 0, 2};
+        memcpy(values_set, values, 16);
+  
     }
     else if (refresh_rate == 55) {
         if (last_refresh_rate == 55) return;
-        uint32_t values[6] = {0, 3, 1, 0, 2, 0};
-        for (size_t i = 0; i < loop_amount; i++) {
-            changeOLEDGammaSettings(UINT32_MAX, &values[0], 6, 0);
-        }    
+        uint32_t values[4] = {3, 1, 0, 2};
+        memcpy(values_set, values, 16);
     }
     else return;
+    for (size_t i = 0; i < loop_amount; i++) {
+        changeOledElvssSettings(&offsets[0], &values_set[0], sizeof(offsets) / sizeof(offsets[0]), 0);
+    }
     last_refresh_rate = refresh_rate;
 }
 
