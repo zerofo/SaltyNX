@@ -229,7 +229,6 @@ struct NxFpsSharedBlock {
 	bool dontForce60InDocked;
 	bool forceSuspend;
 	uint8_t currentRefreshRate;
-	float bufferTimeOffset;
 } PACKED;
 
 NxFpsSharedBlock* Shared = 0;
@@ -255,8 +254,6 @@ typedef int (*nvnGetPresentInterval_0)(const NVNWindow* nvnWindow);
 typedef void* (*nvnSyncWait_0)(const void* _this, uint64_t timeout_ns);
 void* WindowSync = 0;
 uint64_t startFrameTick = 0;
-bool nvnIsDoubleBuffer = false;
-bool nvnReversedDoubleBuffer = false;
 
 enum {
 	ZeroSyncType_None,
@@ -847,9 +844,6 @@ namespace NVN {
 
 	void WindowBuilderSetTextures(const nvnWindowBuilder* nvnWindowBuilder, int numBufferedFrames, const NVNTexture** nvnTextures) {
 		(Shared -> Buffers) = numBufferedFrames;
-		if (numBufferedFrames == 2) {
-			nvnIsDoubleBuffer = true;
-		}
 		if ((Shared -> SetBuffers) >= 2 && (Shared -> SetBuffers) <= numBufferedFrames) {
 			numBufferedFrames = (Shared -> SetBuffers);
 		}
@@ -918,9 +912,6 @@ namespace NVN {
 		NX_FPS_Math::PreFrame();
 		((nvnQueuePresentTexture_0)(Address_weaks.nvnQueuePresentTexture))(_this, nvnWindow, index);
 		NX_FPS_Math::PostFrame();
-		if (nvnIsDoubleBuffer) {
-			(Shared -> bufferTimeOffset) = (float)NX_FPS_Math::delta / (float)(NX_FPS_Math::frameend - startFrameTick);
-		}
 		last_index = index;
 
 		(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Address_weaks.nvnWindowGetPresentInterval))(nvnWindow);
