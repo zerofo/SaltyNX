@@ -306,7 +306,6 @@ namespace NX_FPS_Math {
 	int32_t FPStiming = 0;
 	uint8_t FPStickItr = 0;
 	uint8_t range = 0;
-	uint64_t delta = 0;
 	
 	bool FPSlock_delayed = false;
 	bool old_force = false;
@@ -336,7 +335,6 @@ namespace NX_FPS_Math {
 		uint64_t framedelta = endtick - frameend;
 
 		Shared -> FPSticks[FPStickItr++] = framedelta;
-		delta = framedelta;
 		FPStickItr %= 10;
 		
 		frameavg = ((9*frameavg) + framedelta) / 10;
