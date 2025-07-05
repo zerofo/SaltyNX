@@ -80,6 +80,7 @@ typedef void (*glViewportIndexedfvOES_0)(uint index, const glViewportArray* pVie
 typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInfoKHR);
 typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 typedef u64 (*_ZN2nn2os13GetSystemTickEv_0)();
+typedef u64 (*_ZN2nn2os22GetSystemTickFrequencyEv_0)();
 typedef u64 (*eglGetProcAddress_0)(const char* eglName);
 typedef void* (*nvnCommandBufferSetRenderTargets_0)(const void* cmdBuf, int numTextures, const NVNTexture** texture, const NVNTextureView** textureView, const NVNTexture* depth, const NVNTextureView* depthView);
 typedef void* (*nvnCommandBufferSetViewport_0)(const void* cmdBuf, int x, int y, int width, int height);
@@ -115,6 +116,7 @@ struct {
 	uintptr_t nvSwapchainQueuePresentKHR;
 	uintptr_t ConvertToTimeSpan;
 	uintptr_t GetSystemTick;
+	uintptr_t GetSystemTickFrequency;
 	uintptr_t eglGetProcAddress;
 	uintptr_t ReferSymbol;
 	uintptr_t vkGetInstanceProcAddr;
@@ -227,6 +229,7 @@ struct NxFpsSharedBlock {
 	bool dontForce60InDocked;
 	bool forceSuspend;
 	uint8_t currentRefreshRate;
+	float bufferTimeOffset;
 } PACKED;
 
 NxFpsSharedBlock* Shared = 0;
@@ -237,7 +240,7 @@ struct {
 	bool FPSmode = 0;
 } Stats;
 
-static uint32_t systemtickfrequency = 19200000;
+uint64_t systemtickfrequency = 19200000;
 typedef void (*nvnQueuePresentTexture_0)(const void* _this, const void* unk2_1, int index);
 typedef uintptr_t (*GetProcAddress)(const void* unk1_a, const char * nvnFunction_a);
 
@@ -252,6 +255,8 @@ typedef int (*nvnGetPresentInterval_0)(const NVNWindow* nvnWindow);
 typedef void* (*nvnSyncWait_0)(const void* _this, uint64_t timeout_ns);
 void* WindowSync = 0;
 uint64_t startFrameTick = 0;
+bool nvnIsDoubleBuffer = false;
+bool nvnReversedDoubleBuffer = false;
 
 enum {
 	ZeroSyncType_None,
@@ -304,6 +309,7 @@ namespace NX_FPS_Math {
 	int32_t FPStiming = 0;
 	uint8_t FPStickItr = 0;
 	uint8_t range = 0;
+	uint64_t delta = 0;
 	
 	bool FPSlock_delayed = false;
 	bool old_force = false;
@@ -333,6 +339,7 @@ namespace NX_FPS_Math {
 		uint64_t framedelta = endtick - frameend;
 
 		Shared -> FPSticks[FPStickItr++] = framedelta;
+		delta = framedelta;
 		FPStickItr %= 10;
 		
 		frameavg = ((9*frameavg) + framedelta) / 10;
@@ -840,6 +847,9 @@ namespace NVN {
 
 	void WindowBuilderSetTextures(const nvnWindowBuilder* nvnWindowBuilder, int numBufferedFrames, const NVNTexture** nvnTextures) {
 		(Shared -> Buffers) = numBufferedFrames;
+		if (numBufferedFrames == 2) {
+			nvnIsDoubleBuffer = true;
+		}
 		if ((Shared -> SetBuffers) >= 2 && (Shared -> SetBuffers) <= numBufferedFrames) {
 			numBufferedFrames = (Shared -> SetBuffers);
 		}
@@ -878,7 +888,7 @@ namespace NVN {
 		if (_this == WindowSync && (Shared -> ActiveBuffers) == 2) {
 			if ((Shared -> ZeroSync) == ZeroSyncType_Semi) {
 				u64 FrameTarget = (systemtickfrequency/60) - 8000;
-				s64 new_timeout = (FrameTarget - (endFrameTick - startFrameTick)) - 19200;
+				s64 new_timeout = (FrameTarget - (endFrameTick - startFrameTick)) - (systemtickfrequency / 1000);
 				if ((Shared -> FPSlocked) == 60) {
 					new_timeout = (systemtickfrequency/101) - (endFrameTick - startFrameTick);
 				}
@@ -905,10 +915,12 @@ namespace NVN {
 			NX_FPS_Math::starttick2 = NX_FPS_Math::starttick;
 			(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Address_weaks.nvnWindowGetPresentInterval))(nvnWindow);
 		}
-		
 		NX_FPS_Math::PreFrame();
 		((nvnQueuePresentTexture_0)(Address_weaks.nvnQueuePresentTexture))(_this, nvnWindow, index);
 		NX_FPS_Math::PostFrame();
+		if (nvnIsDoubleBuffer) {
+			(Shared -> bufferTimeOffset) = (float)NX_FPS_Math::delta / (float)(NX_FPS_Math::frameend - startFrameTick);
+		}
 		last_index = index;
 
 		(Shared -> FPSmode) = (uint8_t)((nvnGetPresentInterval_0)(Address_weaks.nvnWindowGetPresentInterval))(nvnWindow);
@@ -976,7 +988,7 @@ namespace NVN {
 		return;
 	}
 
-	void* AcquireTexture(const NVNWindow* nvnWindow, const void* nvnSync, const void* index) {
+	void* AcquireTexture(const NVNWindow* nvnWindow, const void* nvnSync, const int* index) {
 		if (WindowSync != nvnSync) {
 			WindowSync = (void*)nvnSync;
 		}
@@ -1006,12 +1018,14 @@ namespace NVN {
 	}
 
 	void* CommandBufferSetRenderTargets(const nvnCommandBuffer* cmdBuf, int numTextures, const NVNTexture** texture, const NVNTextureView** textureView, const NVNTexture* depthTexture, const NVNTextureView* depthView) {
-		if (resolutionLookup && depthTexture != NULL && texture != NULL) {
-			uint16_t depth_width = ((nvnTextureGetWidth_0)(Address_weaks.nvnTextureGetWidth))(depthTexture);
-			uint16_t depth_height = ((nvnTextureGetHeight_0)(Address_weaks.nvnTextureGetHeight))(depthTexture);
-			int depth_format = ((nvnTextureGetFormat_0)(Address_weaks.nvnTextureGetFormat))(depthTexture);
-			if (depth_width > 1 && depth_height > 1 && (depth_format >= 51 && depth_format <= 54)) {
-				NX_FPS_Math::addResToRender(depth_width, depth_height);
+		if (texture != NULL && depthTexture != NULL) {
+			if (resolutionLookup) {
+				uint16_t depth_width = ((nvnTextureGetWidth_0)(Address_weaks.nvnTextureGetWidth))(depthTexture);
+				uint16_t depth_height = ((nvnTextureGetHeight_0)(Address_weaks.nvnTextureGetHeight))(depthTexture);
+				int depth_format = ((nvnTextureGetFormat_0)(Address_weaks.nvnTextureGetFormat))(depthTexture);
+				if (depth_width > 1 && depth_height > 1 && (depth_format >= 51 && depth_format <= 54)) {
+					NX_FPS_Math::addResToRender(depth_width, depth_height);
+				}
 			}
 		}
 		return ((nvnCommandBufferSetRenderTargets_0)(Address_weaks.nvnCommandBufferSetRenderTargets))(cmdBuf, numTextures, texture, textureView, depthTexture, depthView);
@@ -1109,6 +1123,7 @@ extern "C" {
 			Address_weaks.nvSwapchainQueuePresentKHR = SaltySDCore_FindSymbolBuiltin("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR");
 			Address_weaks.ConvertToTimeSpan = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os17ConvertToTimeSpanENS0_4TickE");
 			Address_weaks.GetSystemTick = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os13GetSystemTickEv");
+			Address_weaks.GetSystemTickFrequency = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os22GetSystemTickFrequencyEv");
 			Address_weaks.eglGetProcAddress = SaltySDCore_FindSymbolBuiltin("eglGetProcAddress");
 			Address_weaks.vkGetInstanceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetInstanceProcAddr");
 			Address_weaks.LookupSymbol = SaltySDCore_FindSymbolBuiltin("_ZN2nn2ro12LookupSymbolEPmPKc");
@@ -1154,7 +1169,8 @@ extern "C" {
 				//Minecraft is using nn::ro::LookupSymbol to search for Vulkan functions
 				SaltySDCore_ReplaceImport("_ZN2nn2ro12LookupSymbolEPmPKc", (void*)vk::LookupSymbol);
 			}
-
+			
+			systemtickfrequency = ((_ZN2nn2os22GetSystemTickFrequencyEv_0)(Address_weaks.GetSystemTickFrequency))();
 			char titleid[17];
 			CheckTitleID(&titleid[0]);
 			char path[128];

@@ -63,6 +63,7 @@ typedef s32 (*vkQueuePresentKHR_0)(const void* vkQueue, const void* VkPresentInf
 typedef s32 (*_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR_0)(const void* VkQueue_T, const void* VkPresentInfoKHR);
 typedef u64 (*_ZN2nn2os17ConvertToTimeSpanENS0_4TickE_0)(u64 tick);
 typedef void (*_ZN2nn2os13GetSystemTickEv_0)(u64* output);
+typedef void (*_ZN2nn2os22GetSystemTickFrequencyEv_0)(u64* output);
 typedef u32 (*eglGetProcAddress_0)(const char* eglName);
 typedef void* (*nvnCommandBufferSetRenderTargets_0)(void* cmdBuf, int numTextures, NVNTexture** texture, NVNTextureView** textureView, NVNTexture* depth, NVNTextureView* depthView);
 typedef void* (*nvnCommandBufferSetViewport_0)(void* cmdBuf, int x, int y, int width, int height);
@@ -93,6 +94,7 @@ struct {
 	uintptr_t nvSwapchainQueuePresentKHR;
 	uintptr_t ConvertToTimeSpan;
 	uintptr_t GetSystemTick;
+	uintptr_t GetSystemTickFrequency;
 	uintptr_t eglGetProcAddress;
 	uintptr_t ReferSymbol;
 	uintptr_t vkGetInstanceProcAddr;
@@ -203,7 +205,7 @@ struct {
 	bool FPSmode = 0;
 } Stats;
 
-static uint32_t systemtickfrequency = 19200000;
+uint64_t systemtickfrequency = 19200000;
 typedef void (*nvnQueuePresentTexture_0)(const void* _this, const void* unk2_1, const int index);
 typedef uintptr_t (*GetProcAddress)(const void* unk1_a, const char * nvnFunction_a);
 
@@ -753,7 +755,7 @@ namespace NVN {
 		if (_this == WindowSync && (Shared -> ActiveBuffers) == 2) {
 			if ((Shared -> ZeroSync) == ZeroSyncType_Semi) {
 				u64 FrameTarget = (systemtickfrequency/60) - 8000;
-				s64 new_timeout = (FrameTarget - (endFrameTick - startFrameTick)) - 19200;
+				s64 new_timeout = (FrameTarget - (endFrameTick - startFrameTick)) - (systemtickfrequency / 1000);
 				if ((Shared -> FPSlocked) == 60) {
 					new_timeout = (systemtickfrequency/101) - (endFrameTick - startFrameTick);
 				}
@@ -989,6 +991,7 @@ extern "C" {
 			Address_weaks.nvSwapchainQueuePresentKHR = SaltySDCore_FindSymbolBuiltin("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR");
 			Address_weaks.ConvertToTimeSpan = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os17ConvertToTimeSpanENS0_4TickE");
 			Address_weaks.GetSystemTick = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os13GetSystemTickEv");
+			Address_weaks.GetSystemTickFrequency = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os22GetSystemTickFrequencyEv");
 			Address_weaks.eglGetProcAddress = SaltySDCore_FindSymbolBuiltin("eglGetProcAddress");
 			Address_weaks.vkGetInstanceProcAddr = SaltySDCore_FindSymbolBuiltin("vkGetInstanceProcAddr");
 			Address_weaks.glViewport = SaltySDCore_FindSymbolBuiltin("glViewport");
@@ -1019,6 +1022,8 @@ extern "C" {
 			SaltySDCore_ReplaceImport("vkQueuePresentKHR", (void*)vk::QueuePresent);
 			SaltySDCore_ReplaceImport("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR", (void*)vk::nvSwapchain::QueuePresent);
 			SaltySDCore_ReplaceImport("vkGetInstanceProcAddr", (void*)vk::GetInstanceProcAddr);
+			
+			((_ZN2nn2os22GetSystemTickFrequencyEv_0)(Address_weaks.GetSystemTickFrequency))(&systemtickfrequency);
 
 			uint64_t titleid = 0;
 			svcGetInfo(&titleid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	

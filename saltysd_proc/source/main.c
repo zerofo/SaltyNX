@@ -93,6 +93,7 @@ uint8_t dockedLinkRate = 10;
 bool isRetroSUPER = false;
 bool isPossiblySpoofedRetro = false;
 bool wasRetroSuperTurnedOff = false;
+uint64_t systemtickfrequency = 0;
 
 void __libnx_initheap(void)
 {
@@ -1174,7 +1175,7 @@ void hijack_pid(u64 pid)
 
     uint64_t tick_start = svcGetSystemTick();
     do {
-        if (svcGetSystemTick() - tick_start > 19200000 * 30) {
+        if (svcGetSystemTick() - tick_start > systemtickfrequency * 30) {
             SaltySD_printf("SaltySD: Waiting for main thread timeout! Aborting...\n");
             goto abort_bootstrap;
         }
@@ -1186,8 +1187,8 @@ void hijack_pid(u64 pid)
     
     renameCheatsFolder();
 
-    if (passed_time_in_ticks > 19200000 * 10) {
-        SaltySD_printf("SaltySD: Waiting for main thread: %d ms, longer than normal!\n", passed_time_in_ticks / 19200);
+    if (passed_time_in_ticks > systemtickfrequency * 10) {
+        SaltySD_printf("SaltySD: Waiting for main thread: %d ms, longer than normal!\n", passed_time_in_ticks / (systemtickfrequency / 1000));
     }
     
     if (hijack_bootstrap(&debug, pid, threadid, isA64)) {
@@ -1798,6 +1799,7 @@ void serviceThread(void* buf)
 
 int main(int argc, char *argv[])
 {
+	systemtickfrequency = armGetSystemTickFreq();
     ABORT_IF_FAILED(smInitialize_old(), 0);
     Service_old toget;
     ABORT_IF_FAILED(smGetService_old(&toget, "fsp-srv"), 1);

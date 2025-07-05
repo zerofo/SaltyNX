@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+extern uint64_t systemtickfrequency;
+
 static inline void SaltySD_printf(const char* format, ...)
 {
 	FILE* logflag = fopen("sdmc:/SaltySD/flags/log.flag", "r");
@@ -32,7 +34,7 @@ static inline void SaltySD_printf(const char* format, ...)
 		else if (previous_line_had_endline) {
 			char timer[] = "[244444444:24:24] ";
 			uint64_t deltaTick = svcGetSystemTick() - tick;
-			uint64_t deltaSeconds = deltaTick / 19200000;
+			uint64_t deltaSeconds = deltaTick / systemtickfrequency;
 			snprintf(timer, sizeof(timer), "[%02ld:%02ld:%02ld] ", (deltaSeconds/3600), ((deltaSeconds/60) % 60), deltaSeconds % 60);
 			fwrite(timer, strlen(timer), 1, f);
 		}
