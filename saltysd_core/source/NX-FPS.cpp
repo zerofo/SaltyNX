@@ -262,7 +262,7 @@ enum {
 };
 
 inline void createBuildidPath(const uint64_t buildid, char* titleid, char* buffer) {
-	strcpy(buffer, "sdmc:/SaltySD/plugins/FPSLocker/patches/0");
+	strcpy(buffer, "sdmc:/switch/SaltySD/plugins/FPSLocker/patches/0");
 	strcat(buffer, &titleid[0]);
 	strcat(buffer, "/");
 	ltoa(buildid, &titleid[0], 16);
@@ -1163,7 +1163,7 @@ extern "C" {
 			char titleid[17];
 			CheckTitleID(&titleid[0]);
 			char path[128];
-			strcpy(&path[0], "sdmc:/SaltySD/plugins/FPSLocker/0");
+			strcpy(&path[0], "sdmc:/switch/SaltySD/plugins/FPSLocker/0");
 			strcat(&path[0], &titleid[0]);
 			strcat(&path[0], ".dat");
 			FILE* file_dat = SaltySDCore_fopen(path, "rb");
@@ -1172,7 +1172,7 @@ extern "C" {
 				SaltySDCore_fread(&temp, 1, 1, file_dat);
 				(Shared -> FPSlocked) = temp;
 				if (temp >= 40 && temp <= 120) {
-					FILE* sync_file = SaltySDCore_fopen("sdmc:/SaltySD/flags/displaysync.flag", "rb");
+					FILE* sync_file = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/displaysync.flag", "rb");
 					if  (sync_file) {
 						SaltySDCore_fclose(sync_file);
 						SaltySD_SetDisplayRefreshRate(temp);

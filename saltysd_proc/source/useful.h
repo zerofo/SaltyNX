@@ -10,7 +10,7 @@ extern uint64_t systemtickfrequency;
 
 static inline void SaltySD_printf(const char* format, ...)
 {
-	FILE* logflag = fopen("sdmc:/SaltySD/flags/log.flag", "r");
+	FILE* logflag = fopen("sdmc:/switch/SaltySD/flags/log.flag", "r");
 	if (logflag == NULL) return;
 	fclose(logflag);
 	
@@ -24,7 +24,7 @@ static inline void SaltySD_printf(const char* format, ...)
 	svcOutputDebugString(buffer, strlen(buffer));
 	
 	static bool previous_line_had_endline = false;
-	FILE* f = fopen("sdmc:/SaltySD/saltysd.log", "ab");
+	FILE* f = fopen("sdmc:/switch/SaltySD/saltysd.log", "ab");
 	if (f)
 	{
 		static uint64_t tick = 0;

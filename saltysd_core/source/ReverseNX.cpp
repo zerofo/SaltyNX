@@ -77,7 +77,7 @@ ReverseNX_state loadSave() {
 	char path[128];
     uint64_t titid = 0;
     svcGetInfo(&titid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
-	snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/ReverseNX-RT/%016lX.dat", titid);
+	snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/ReverseNX-RT/%016lX.dat", titid);
 	errno = 0;
 	FILE* save_file = SaltySDCore_fopen(path, "rb");
 	if (save_file) {

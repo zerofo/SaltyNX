@@ -437,7 +437,7 @@ void LoadDockedModeAllowedSave() {
     }
     char path[128] = "";
     int crc32 = crc32Calculate(&edid, sizeof(edid));
-    snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.dat", crc32);
+    snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.dat", crc32);
     if (file_or_directory_exists(path) == false) {
         FILE* file = fopen(path, "wb");
         if (file) {
@@ -446,7 +446,7 @@ void LoadDockedModeAllowedSave() {
         }
         else SaltySD_printf("SaltySD: Couldn't dump EDID to sdcard!\n", &path[31]);
     }
-    snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
+    snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
     if (file_or_directory_exists(path) == true) {
         FILE* file = fopen(path, "r");
         SaltySD_printf("SaltySD: %s opened successfully!\n", &path[31]);
@@ -610,7 +610,7 @@ bool setNvDispDockedRefreshRate(uint32_t new_refreshRate) {
         nvClose(fd);
         return false;
     }
-    if ((file_or_directory_exists("sdmc:/SaltySD/test.flag") == false) && DISPLAY_B.vActive != last_vActive) {
+    if ((file_or_directory_exists("sdmc:/switch/SaltySD/test.flag") == false) && DISPLAY_B.vActive != last_vActive) {
         last_vActive = DISPLAY_B.vActive;
         if (DISPLAY_B.vActive != 720 && DISPLAY_B.vActive != 1080) {
             for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
@@ -793,7 +793,7 @@ bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
     u32 fd = 0;
     
     if (isLite && isPossiblySpoofedRetro) {
-        if (file_or_directory_exists("sdmc:/SaltySD/flags/retro.flag") == true)
+        if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/retro.flag") == true)
             isRetroSUPER = true;
         else isRetroSUPER = false;
     }
@@ -1024,7 +1024,7 @@ bool hijack_bootstrap(Handle* debug, u64 pid, u64 tid, bool isA64)
     uint64_t new_start;
     if (isA64) {
         FILE* file = 0;
-        file = fopen("sdmc:/SaltySD/saltysd_bootstrap.elf", "rb");
+        file = fopen("sdmc:/switch/SaltySD/saltysd_bootstrap.elf", "rb");
         if (!file) {
             SaltySD_printf("SaltySD: SaltySD/saltysd_bootstrap.elf not found, aborting...\n", ret);
             svcCloseHandle(*debug);
@@ -1060,7 +1060,7 @@ void hijack_pid(u64 pid)
     s32 threads = 0;
     Handle debug;
         
-    if (file_or_directory_exists("sdmc:/SaltySD/flags/disable.flag") == true) {
+    if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/disable.flag") == true) {
         SaltySD_printf("SaltySD: Detected disable.flag, aborting bootstrap...\n");
         return;
     }
@@ -1125,7 +1125,7 @@ void hijack_pid(u64 pid)
                 goto abort_bootstrap;
             }
             
-            FILE* except = fopen("sdmc:/SaltySD/exceptions.txt", "r");
+            FILE* except = fopen("sdmc:/switch/SaltySD/exceptions.txt", "r");
             if (except) {
                 char exceptions[20];
                 char titleidnumX[20];
@@ -1259,11 +1259,11 @@ Result handleServiceCmd(int cmd)
         bool arm32 = false;
         if (!strncmp(name, "saltysd_core32.elf", 18)) arm32 = true;
 
-        snprintf(path, 96, "sdmc:/SaltySD/plugins/%s", name);
+        snprintf(path, 96, "sdmc:/switch/SaltySD/plugins/%s", name);
         FILE* f = fopen(path, "rb");
         if (!f)
         {
-            snprintf(path, 96, "sdmc:/SaltySD/%s", name);
+            snprintf(path, 96, "sdmc:/switch/SaltySD/%s", name);
             f = fopen(path, "rb");
         }
 
@@ -1577,12 +1577,12 @@ Result handleServiceCmd(int cmd)
 
         displaySync = (bool)(resp -> value);
         if (displaySync) {
-            FILE* file = fopen("sdmc:/SaltySD/flags/displaysync.flag", "wb");
+            FILE* file = fopen("sdmc:/switch/SaltySD/flags/displaysync.flag", "wb");
             fclose(file);
             SaltySD_printf("SaltySD: cmd 12 handler -> %d\n", displaySync);
         }
         else {
-            remove("sdmc:/SaltySD/flags/displaysync.flag");
+            remove("sdmc:/switch/SaltySD/flags/displaysync.flag");
             SaltySD_printf("SaltySD: cmd 12 handler -> %d\n", displaySync);
         }
 
@@ -1854,10 +1854,10 @@ int main(int argc, char *argv[])
         }
     }
     if (!isLite) {
-        if (file_or_directory_exists("sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays") == false) {
-            mkdir("sdmc:/SaltySD/plugins", 69);
-            mkdir("sdmc:/SaltySD/plugins/FPSLocker", 420);
-            mkdir("sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays", 2137);
+        if (file_or_directory_exists("sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays") == false) {
+            mkdir("sdmc:/switch/SaltySD/plugins", 69);
+            mkdir("sdmc:/switch/SaltySD/plugins/FPSLocker", 420);
+            mkdir("sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays", 2137);
         }
     }
     ABORT_IF_FAILED(ldrDmntInitialize(), 7);
@@ -1867,7 +1867,7 @@ int main(int argc, char *argv[])
     serviceClose(ldrDmntSrv);
     memcpy(ldrDmntSrv, &ldrDmntClone, sizeof(Service));
 
-    if (file_or_directory_exists("sdmc:/SaltySD/flags/displaysync.flag")) {
+    if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/displaysync.flag")) {
         displaySync = true;
     }
 

@@ -1028,14 +1028,14 @@ extern "C" {
 			uint64_t titleid = 0;
 			svcGetInfo(&titleid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
 			char path[128];
-			snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/%016llX.dat", titleid);
+			snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/%016llX.dat", titleid);
 			FILE* file_dat = SaltySDCore_fopen(path, "rb");
 			if (file_dat) {
 				uint8_t temp = 0;
 				SaltySDCore_fread(&temp, 1, 1, file_dat);
 				(Shared -> FPSlocked) = temp;
 				if (temp >= 40 && temp <= 120) {
-					FILE* sync_file = SaltySDCore_fopen("sdmc:/SaltySD/flags/displaysync.flag", "rb");
+					FILE* sync_file = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/displaysync.flag", "rb");
 					if  (sync_file) {
 						SaltySDCore_fclose(sync_file);
 						SaltySD_SetDisplayRefreshRate(temp);
@@ -1057,7 +1057,7 @@ extern "C" {
 			}
 			else {
 				SaltySDCore_printf("NX-FPS: BID: %016llX\n", buildid);
-				snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
+				snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
 				FILE* patch_file = SaltySDCore_fopen(path, "rb");
 				if (patch_file) {
 					SaltySDCore_fclose(patch_file);

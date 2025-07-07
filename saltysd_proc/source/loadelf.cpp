@@ -79,7 +79,7 @@ Result load_elf32_debug(Handle debug, uint64_t* start)
 	
 	switch(offset) {
 		case 0x3000: {
-			file = fopen("sdmc:/SaltySD/saltysd_bootstrap32_3k.elf", "rb");
+			file = fopen("sdmc:/switch/SaltySD/saltysd_bootstrap32_3k.elf", "rb");
 			if (!file) {
 				SaltySD_printf("SaltySD: SaltySD/saltysd_bootstrap32_3k.elf not found, aborting...\n", ret);
 				svcCloseHandle(debug);
@@ -88,7 +88,7 @@ Result load_elf32_debug(Handle debug, uint64_t* start)
 			break;
 		}
 		case 0x5000: {
-			file = fopen("sdmc:/SaltySD/saltysd_bootstrap32_5k.elf", "rb");
+			file = fopen("sdmc:/switch/SaltySD/saltysd_bootstrap32_5k.elf", "rb");
 			if (!file) {
 				SaltySD_printf("SaltySD: SaltySD/saltysd_bootstrap32_5k.elf not found, aborting...\n", ret);
 				svcCloseHandle(debug);

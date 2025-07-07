@@ -1,0 +1,39 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64
+
+    steps:
+        - name: Checkout
+          uses: actions/checkout@master
+          with:
+            ref: master
+            submodules: recursive
+
+        - run: |
+                git config --global --add safe.directory $(pwd)
+                git submodule update --init --recursive
+                make
+                cd sdcard_out && sudo -E zip -r SaltyNX.zip ./
+
+        - name: Upload file
+          uses: actions/upload-artifact@master
+          with:
+            name: SaltyNX 
+            path: ./sdcard_out/SaltyNX.zip
+        - name: Upload binaries to release
+          uses: svenstaro/upload-release-action@master
+          with:
+            repo_token: ${{ secrets.repo_token }}
+            file: ./sdcard_out/SaltyNX.zip
+            tag: ${{ github.ref }}
+            overwrite: true
+            file_glob: true
