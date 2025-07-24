@@ -80,6 +80,7 @@ size_t reservedSharedMemory = 0;
 uint64_t clkVirtAddr = 0;
 uint64_t dsiVirtAddr = 0;
 bool displaySync = false;
+bool displaySyncDocked = false;
 uint8_t refreshRate = 0;
 s64 lastAppPID = -1;
 bool isOLED = false;
@@ -385,10 +386,10 @@ __attribute__((noinline)) void correctOledGamma(uint32_t refresh_rate) {
     last_refresh_rate = refresh_rate;
 }
 
-void getDockedHighestRefreshRate() {
+void getDockedHighestRefreshRate(uint32_t fd_in) {
     uint8_t highestRefreshRate = 60;
-    uint32_t fd = 0;
-    if (R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+    uint32_t fd = fd_in;
+    if (!fd && R_FAILED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
         SaltySD_printf("SaltySD: Couldn't open /dev/nvdisp-disp1! Blocking to 60 Hz.\n");
         dockedHighestRefreshRate = 60;
         return;
@@ -405,17 +406,20 @@ void getDockedHighestRefreshRate() {
             if (highestRefreshRate < (uint8_t)refreshRate) highestRefreshRate = (uint8_t)refreshRate;
         }
     }
-    else SaltySD_printf("SaltySD: NVDISP_GET_MODE_DB2 for /dev/nvdisp-disp1 returned error 0x%x!\n", nvrc);
+    else {
+        SaltySD_printf("SaltySD: NVDISP_GET_MODE_DB2 for /dev/nvdisp-disp1 returned error 0x%x!\n", nvrc);
+        dockedHighestRefreshRate = 60;
+    }
     if (highestRefreshRate > DockedModeRefreshRateAllowedValues[sizeof(DockedModeRefreshRateAllowedValues) - 1]) 
         highestRefreshRate = DockedModeRefreshRateAllowedValues[sizeof(DockedModeRefreshRateAllowedValues) - 1];
     struct dpaux_read_0x100 dpaux = {6, 0x100, 0x10};
     nvrc = nvIoctl(fd, NVDISP_GET_PANEL_DATA, &dpaux);
     if (R_SUCCEEDED(nvrc)) {
-        if (highestRefreshRate > 75 && dpaux.set.link_rate < 20) highestRefreshRate = 75;
         dockedLinkRate = dpaux.set.link_rate;
+        if (DB2.modes[0].hActive == 1920 && DB2.modes[0].vActive == 1080 && highestRefreshRate > 75 && dpaux.set.link_rate < 20) highestRefreshRate = 75;
     }
     else SaltySD_printf("SaltySD: NVDISP_GET_PANEL_DATA for /dev/nvdisp-disp1 returned error 0x%x!\n", nvrc);
-    nvClose(fd);
+    if (!fd_in) nvClose(fd);
     dockedHighestRefreshRate = highestRefreshRate;
 }
 
@@ -431,6 +435,8 @@ void setDefaultDockedSettings() {
 void LoadDockedModeAllowedSave() {
     SetSysEdid edid = {0};
     setDefaultDockedSettings();
+    if (isLite)
+        return;
     if (R_FAILED(setsysGetEdid(&edid))) {
         SaltySD_printf("SaltySD: Couldn't retrieve display EDID! Locking allowed refresh rates in docked mode to 50 and 60 Hz.\n");
         return;
@@ -449,27 +455,36 @@ void LoadDockedModeAllowedSave() {
     snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
     if (file_or_directory_exists(path) == true) {
         FILE* file = fopen(path, "r");
-        SaltySD_printf("SaltySD: %s opened successfully!\n", &path[31]);
+        if (!file) {
+            SaltySD_printf("SaltySD: %s opening failed (file already opened?). Locking allowed refresh rates in docked mode to 50 and 60 Hz.\n", &path[31]);
+            return;
+        }
         fseek(file, 0, 2);
         size_t size = ftell(file);
         fseek(file, 0, 0);
         char* temp_string = malloc(size);
+        if (!temp_string) {
+            SaltySD_printf("SaltySD: Allocation failure! Memory leak. Get ready for crash.\n");
+        }
         fread(temp_string, size, 1, file);
         fclose(file);
         remove_spaces(temp_string, temp_string);
         if (memcmp(temp_string, "[Common]", 8)) {
             SaltySD_printf("SaltySD: %s doesn't start with \"[Common]\"! Using default settings!\n", &path[31]);
+            free(temp_string);
             return;
         }
         char* substring = strstr(temp_string, "refreshRateAllowed={");
         if (substring == NULL) {
             SaltySD_printf("SaltySD: %s doesn't have \"refreshRateAllowed\"! Using default settings!\n", &path[31]);
+            free(temp_string);
             return;
         }
         char* rr_start = &substring[strlen("refreshRateAllowed={")];
         substring = strstr(rr_start, "}");
         if (substring == NULL) {
             SaltySD_printf("SaltySD: %s \"refreshRateAllowed\" is malformed! Using default settings!\n", &path[31]);
+            free(temp_string);
             return;
         }
         size_t amount = 1;
@@ -501,6 +516,7 @@ void LoadDockedModeAllowedSave() {
             matchLowestDocked = (bool)!strncasecmp(substring, "True", 4);
         }
         else SaltySD_printf("SaltySD: %s doesn't have \"matchLowestRefreshRate\"! Setting to false!\n", &path[31]);
+        free(temp_string);
     }
     else {
         SaltySD_printf("SaltySD: File \"%s\" not found! Locking allowed refresh rates in docked mode to 50 and 60 Hz.\n", path);
@@ -658,7 +674,7 @@ bool setNvDispDockedRefreshRate(uint32_t new_refreshRate) {
     }
     bool increase = refreshRateNow < DockedModeRefreshRateAllowedValues[itr];
     while(itr >= 0 && itr < sizeof(DockedModeRefreshRateAllowed) && DockedModeRefreshRateAllowed[itr] != true) {
-        if (!displaySync) {
+        if (!displaySyncDocked) {
             if (increase) itr++;
             else itr--;
         }
@@ -878,7 +894,7 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
                     nvClose(fd);
                     if (R_SUCCEEDED(nvrc)) {
                         LoadDockedModeAllowedSave();
-                        getDockedHighestRefreshRate();
+                        getDockedHighestRefreshRate(0);
                         canChangeRefreshRateDocked = true;
                     }
                     else {
@@ -890,11 +906,16 @@ bool GetDisplayRefreshRate(uint32_t* out_refreshRate, bool internal) {
             }
             uint32_t fd = 0;
             if (R_SUCCEEDED(nvOpen(&fd, "/dev/nvdisp-disp1"))) {
+                static uint32_t last_vActive = 0;
                 struct nvdcMode2 DISPLAY_B = {0};
                 if (R_SUCCEEDED(nvIoctl(fd, NVDISP_GET_MODE2, &DISPLAY_B))) {
                     if (!DISPLAY_B.pclkKHz) {
                         nvClose(fd);
                         return false;
+                    }
+                    if (last_vActive != DISPLAY_B.vActive) {
+                        last_vActive = DISPLAY_B.vActive;
+                        getDockedHighestRefreshRate(fd);
                     }
                     uint32_t h_total = DISPLAY_B.hActive + DISPLAY_B.hFrontPorch + DISPLAY_B.hSyncWidth + DISPLAY_B.hBackPorch;
                     uint32_t v_total = DISPLAY_B.vActive + DISPLAY_B.vFrontPorch + DISPLAY_B.vSyncWidth + DISPLAY_B.vBackPorch;
@@ -1719,6 +1740,31 @@ Result handleServiceCmd(int cmd)
 
         return 0;
     }
+    else if (cmd == 18) // SetDisplaySyncDocked
+    {
+        IpcParsedCommand r = {0};
+        ipcParse(&r);
+
+        struct {
+            u64 magic;
+            u64 cmd_id;
+            u64 value;
+            u64 reserved;
+        } *resp = r.Raw;
+
+        displaySyncDocked = (bool)(resp -> value);
+        if (displaySyncDocked) {
+            FILE* file = fopen("sdmc:/SaltySD/flags/displaysyncdocked.flag", "wb");
+            fclose(file);
+            SaltySD_printf("SaltySD: cmd 18 handler -> %d\n", displaySyncDocked);
+        }
+        else {
+            remove("sdmc:/SaltySD/flags/displaysyncdocked.flag");
+            SaltySD_printf("SaltySD: cmd 18 handler -> %d\n", displaySyncDocked);
+        }
+
+        ret = 0;
+    }
     else
     {
         ret = 0xEE01;
@@ -1870,6 +1916,9 @@ int main(int argc, char *argv[])
     if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/displaysync.flag")) {
         displaySync = true;
     }
+    if (file_or_directory_exists("sdmc:/SaltySD/flags/displaysyncdocked.flag")) {
+        displaySyncDocked = true;
+    }
 
     // Start our port
     // For some reason, we only have one session maximum (0 reslimit handle related?)	
@@ -1958,7 +2007,7 @@ int main(int argc, char *argv[])
                 if (shmemGetAddr(&_sharedMemory)) {
                     memset(shmemGetAddr(&_sharedMemory), 0, 0x1000);
                 }
-                if (displaySync) {
+                if ((!isDocked && displaySync) || (isDocked && displaySyncDocked)) {
                     uint32_t temp_refreshRate = 0;
                     if (GetDisplayRefreshRate(&temp_refreshRate, true) && temp_refreshRate != 60)
                         SetDisplayRefreshRate(60);
@@ -1966,7 +2015,7 @@ int main(int argc, char *argv[])
                 }
             }
             else {
-                if (displaySync) {
+                if ((!isDocked && displaySync) || (isDocked && displaySyncDocked)) {
                     uint32_t temp_refreshRate = 0;
                     GetDisplayRefreshRate(&temp_refreshRate, true);
                     uint32_t check_refresh_rate = refreshRate;
