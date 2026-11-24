@@ -30,6 +30,7 @@ saltysd_core/saltynx_core32.elf: saltysd_bootstrap/saltynx_bootstrap32.elf
 
 sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp: saltysd_core/saltynx_core.elf saltysd_core/saltynx_core32.elf saltysd_proc/saltynx_proc.nsp
 	@mkdir -p sdcard_out/atmosphere/contents/0000000000534C56/flags
+	@ls saltysd_*
 	@cp $< $@
 	@touch sdcard_out/atmosphere/contents/0000000000534C56/flags/boot2.flag
 	@mkdir -p sdcard_out/switch/SaltySD/flags/
