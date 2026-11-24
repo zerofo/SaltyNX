@@ -14,31 +14,6 @@
 
 #define LINKABLE __attribute__ ((weak))
 
-<<<<<<< HEAD
-extern void SaltySDCore_printf(const char* format, ...) LINKABLE;
-	
-void SaltySDCore_printf(const char* format, ...)
-{
-	FILE* logflag = fopen("sdmc:/switch/SaltySD/flags/log.flag", "r");
-	if (logflag == NULL) return;
-	fclose(logflag);
-	
-	char buffer[256];
-
-	va_list args;
-	va_start(args, format);
-	vsnprintf(buffer, 256, format, args);
-	va_end(args);
-	
-	svcOutputDebugString(buffer, strlen(buffer));
-	
-	FILE* f = fopen("sdmc:/switch/SaltySD/saltysd_core.log", "ab");
-	if (f)
-	{
-		fwrite(buffer, strlen(buffer), 1, f);
-		fclose(f);
-	}
-=======
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,7 +21,6 @@ extern "C" {
 extern void SaltySDCore_printf(const char* format, ...) LINKABLE;
 
 #ifdef __cplusplus
->>>>>>> 6d4b27255fe350fd349483430d42da770ea3d982
 }
 #endif
 
