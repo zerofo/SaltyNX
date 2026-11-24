@@ -38,10 +38,10 @@ sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp: saltysd_core/saltynx_
 	@touch sdcard_out/switch/SaltySD/flags/log.flag
 	@cp exceptions.txt sdcard_out/switch/SaltySD/exceptions.txt
 	@cp saltysd_proc/toolbox.json sdcard_out/atmosphere/contents/0000000000534C56/toolbox.json
-	@cp saltysd_core/saltysd_core32.elf sdcard_out/switch/SaltySD/saltysd_core32.elf
-	@cp saltysd_core/saltysd_core.elf sdcard_out/switch/SaltySD/saltysd_core.elf
-	@cp saltysd_bootstrap/saltysd_bootstrap.elf sdcard_out/switch/SaltySD/saltysd_bootstrap.elf
-	@cp saltysd_bootstrap/saltysd_bootstrap32.elf sdcard_out/switch/SaltySD/saltysd_bootstrap32.elf
+	@cp saltysd_core/saltynx_core32.elf sdcard_out/switch/SaltySD/saltynx_core32.elf
+	@cp saltysd_core/saltynx_core.elf sdcard_out/switch/SaltySD/saltynx_core.elf
+	@cp saltysd_bootstrap/saltynx_bootstrap.elf sdcard_out/switch/SaltySD/saltynx_bootstrap.elf
+	@cp saltysd_bootstrap/saltynx_bootstrap32.elf sdcard_out/switch/SaltySD/saltynx_bootstrap32.elf
 	@cp saltysd_proc/saltysd_proc.nsp sdcard_out/atmosphere/contents/0000000000534C56/exefs.nsp
 	@cp -r exefs_patches/ sdcard_out/atmosphere/
 
