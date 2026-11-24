@@ -24,16 +24,16 @@ VERSION	:=	$(LIBNX_MAJOR).$(LIBNX_MINOR).$(LIBNX_PATCH)
 #---------------------------------------------------------------------------------
 TARGET		:=	nx_min
 #BUILD		:=	build
-SOURCES		:=  source/kernel source/services source/applets source/runtime source/runtime/devices source/runtime/util/utf
+SOURCES		:=  source/kernel source/services source/runtime source/libc source/libc/math
 DATA		:=	data
 INCLUDES	:=	include external/bsd/include
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIC -ftls-model=local-exec
+ARCH	:=	-march=armv8-a -mfpu=neon-vfpv4 -mtune=cortex-a57 -mtp=soft -mfloat-abi=hard -fPIC -ftls-model=local-exec
 
-CFLAGS	:=	-g -Wall -Wno-pointer-to-int-cast \
+CFLAGS	:=	-g -Wall -Werror \
 			-ffunction-sections \
 			-fdata-sections \
 			$(ARCH) \
@@ -41,7 +41,7 @@ CFLAGS	:=	-g -Wall -Wno-pointer-to-int-cast \
 
 CFLAGS	+=	$(INCLUDE) -DSWITCH
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++23
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++26
 
 ASFLAGS	:=	-g $(ARCH)
 
@@ -96,10 +96,10 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 all: lib/libnx_min.a lib/libnx_mind.a
 
 dist-bin: all
-	@tar --exclude=*~ -cjf libnx-$(VERSION).tar.bz2 include lib default_icon.jpg switch_rules switch.ld switch.specs -C external/bsd include
+	@tar --exclude=*~ -cjf libnx-$(VERSION).tar.bz2 include lib switch_rules switch.ld switch.specs -C external/bsd include
 
 dist-src:
-	@tar --exclude=*~ -cjf libnx-src-$(VERSION).tar.bz2 include source data external Makefile default_icon.jpg switch_rules switch.ld switch.specs
+	@tar --exclude=*~ -cjf libnx-src-$(VERSION).tar.bz2 include source data external Makefile switch_rules switch.ld switch.specs
 
 dist: dist-src dist-bin
 

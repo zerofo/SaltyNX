@@ -29,7 +29,10 @@ include $(DEVKITPRO)/libnx/switch_rules
 #	 - icon.jpg
 #	 - <libnx folder>/default_icon.jpg
 #---------------------------------------------------------------------------------
-TARGET		:=	saltysd_proc
+include $(TOPDIR)/../version.mk
+
+APP_NAME    :=  SaltyNX
+TARGET		:=	saltynx_proc
 BUILD		:=	build
 SOURCES		:=	source
 DATA		:=	data
@@ -39,18 +42,18 @@ EXEFS_SRC	:=	exefs_src
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto
+ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 
-CFLAGS	:=	-g -Wall -Os \
-			-ffast-math -ffunction-sections -fdata-sections \
+CFLAGS	:=	-g -Wall -Werror -Os \
+			-ffast-math -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-CFLAGS	+=	$(INCLUDE) -DSWITCH
+CFLAGS	+=	$(INCLUDE) -DSWITCH -DAPP_VERSION=\"$(VERSION)\" -DAPP_NAME=\"$(APP_NAME)\"
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++23
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++26
 
 ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map) -Wl,-wrap,__cxa_throw -Wl,-wrap,_Unwind_Resume -Wl,-wrap,__gxx_personality_v0
 
 LIBS	:= -lnx
 
@@ -152,11 +155,17 @@ all: $(BUILD)
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-
+# Doing it in one line results in wrong output on Arch Linux
+	@echo "{" > toolbox.json
+	@echo "    \"name\": \"SaltyNX\"," >> toolbox.json
+	@echo "    \"tid\": \"0000000000534C56\"," >> toolbox.json
+	@echo "    \"requires_reboot\": true," >> toolbox.json
+	@echo "    \"version\": \"$(VERSION)\"" >> toolbox.json
+	@echo "}" >> toolbox.json
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).nsp $(TARGET).npdm $(TARGET).pfs0 $(TARGET).nso $(TARGET).nro $(OUTPUT).kip $(TARGET).nsp $(TARGET).nacp $(TARGET).elf $(DATA)/*.elf
+	@rm -fr $(BUILD) $(TARGET).nsp $(TARGET).npdm $(TARGET).pfs0 $(TARGET).nso $(TARGET).nro $(OUTPUT).kip $(TARGET).nsp $(TARGET).nacp $(TARGET).elf $(DATA)/*.elf toolbox.json
 
 
 #---------------------------------------------------------------------------------

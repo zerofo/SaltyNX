@@ -1,102 +1,114 @@
 # SaltyNX
 
-Background process for the Nintendo Switch for file/code modification
+Sysmodule for injecting custom codes into retail Nintendo Switch games, by default it injects "Core" which includes many useful features known as NX-FPS (tracking game performance statistics, unlocking FPS) and ReverseNX-RT (switching between docked and handheld graphics profiles). Sysmodule also manages custom refresh rates in both handheld and docked modes.
 
-Created by: https://github.com/shinyquagsire23
+This sysmodule targets more common approach, so basic compatibility with all games is a priority. If you want to inject your own code for specific game I recommend much more powerful code injection framework - [exlaunch](https://github.com/shadowninja108/exlaunch).
 
-This fork includes many QoL improvements and beside plugins support also supports patches. 
+Original sysmodule was created by: https://github.com/shinyquagsire23
 
-Since 0.7.0 version NX-FPS and ReverseNX-RT are an intergral part of SaltyNX Core.<br>
-Since 1.0.0 32-bit games are supported (external plugins are not supported for them).<br>
-To use ReverseNX-RT download newest overlay from [HERE](https://github.com/masagrator/ReverseNX-RT/releases)
+This fork includes many new features (aforementioned NX-FPS and ReverseNX-RT), compatibility fixes, and beside plugins support also supports patches for easy way to edit common functions.
 
 ![GitHub all releases](https://img.shields.io/github/downloads/masagrator/SaltyNX/total?style=for-the-badge)
 ---
 
+> [!CAUTION]
+> It is required to have FW installed at least 10.0.0 version
+> 
+> No technical support for anything else than stock Atmosphere.
+>
+> Using it in online games such as Splatoon 3 can lead to ban as it injects custom code, be aware of that.
+
+> [!IMPORTANT]
+> Known issues:
+> - Cheats using HEAP+offset address instead of MAIN+offset address chain may not work properly.
+
+Tools utilizing SaltyNX:
+- [FPSLocker](https://github.com/masagrator/FPSLocker)
+- [ReverseNX-RT](https://github.com/masagrator/ReverseNX-RT)
+- [Status Monitor Overlay](https://github.com/masagrator/Status-Monitor-Overlay)
+- And more
+
+For additional functions you need [SaltyNX-Tool](https://github.com/masagrator/SaltyNX-Tool)
+
 Patches pattern:
-- filename is symbol of function with filetype `.asm64` for 64-bit games, `.asm32` for 32-bit games,
+- filename is a function symbol with filetype `.asm64` for 64-bit games, `.asm32` for 32-bit games,
 - inside file write with hex editor instructions that you want to put into this function,
 - put this file either to `SaltySD/patches` to make it work for every game, or to `SaltySD/patches/*titleid*` to make it work for specific game.
 
-For additional functions you need SaltyNX-Tool
+Examples of such patches can be find [HERE](https://github.com/masagrator/SaltyNX-Patches).
 
-https://github.com/masagrator/SaltyNX-Tool
+# How to install release:
 
-It is required to have FW installed at least 10.0.0 version
+Download newest version from [RELEASES](https://github.com/masagrator/SaltyNX/releases), look for .zip file with name starting "SaltyNX", unpack it.
 
-No technical support for:
-- Atmosphere forks
-- SX OS
-- Kosmos
-- ReinX
+Put `atmosphere` and `SaltySD` folders unpacked from zip archive to root of your sdcard.
 
-Known issues:
-- Instability with some homebrews and sysmodules (like emuiibo),
-- You need to have at least Hekate 5.0.2 if you don't want issues related to Hekate,
-- Cheats using directly heap addresses may not work properly while using plugins.
+Remember to restart Switch. 
 
-# How to download release:
+> [!IMPORTANT]
+> In case of any issues after updating already existing SaltyNX setup, remove whole SaltySD folder and put fresh one from release.
 
-For Atmosphere >=0.10.1 just put folders from archive to root of your sdcard.
+---
 
-For Atmosphere <=0.9.4 and any other CFW rename `contents` folder to `titles`
+# Exceptions
 
-Remember to restart Switch
+<details> 
+
+  <summary>List of titles not compatible only with external plugins, they support all other SaltyNX features</summary>
+
+| Title | Why? |
+| ------------- | ------------- |
+| Azure Striker Gunvolt: Striker Pack | 32-bit games don't support plugins |
+| Baldur's Gate and Baldur's Gate II: Enhanced Editions | 32-bit games don't support plugins |
+| CelDamage HD | 32-bit games don't support plugins |
+| DEADLY PREMONITION Origins | 32-bit games don't support plugins |
+| Death Road to Canada | 32-bit games don't support plugins |
+| Dies irae Amantes amentes For Nintendo Switch | 32-bit games don't support plugins |
+| Goat Simulator | 32-bit games don't support plugins |
+| Gothic | 32-bit games don't support plugins |
+| Grandia Collection | Only launcher is 64-bit, actual games are 32-bit, so plugins are not supported |
+| LIMBO | 32-bit games don't support plugins |
+| Luigi's Mansions 2 HD | 32-bit games don't support plugins |
+| Mario Kart 8 Deluxe (1.0.0-3.0.3) | 32-bit games don't support plugins |
+| Megadimension Neptunia VII | 32-bit games don't support plugins |
+| Moero Chronicle Hyper | 32-bit games don't support plugins |
+| Moero Crystal H | 32-bit games don't support plugins |
+| Monster Hunter Generations Ultimate | 32-bit games don't support plugins |
+| Monster Hunter XX Nintendo Switch Ver. | 32-bit games don't support plugins |
+| New Super Mario Bros. U Deluxe | 32-bit games don't support plugins |
+| Ni no Kuni: Wrath of the White Witch | 32-bit games don't support plugins |
+| Pikmin 3 Deluxe | 32-bit games don't support plugins |
+| Planescape: Torment and Icewind Dale | 32-bit games don't support plugins |
+| Radiant Silvergun | 32-bit games don't support plugins |
+| Sherlock Holmes and The Hound of The Baskervilles | 32-bit games don't support plugins |
+| Tokyo Mirage Session #FE Encore | 32-bit games don't support plugins |
+| Valkyria Chronicles | 32-bit games don't support plugins |
+| World of Goo | 32-bit games don't support plugins |
+| YouTube | Unknown |
+| 超次次元ゲイム ネプテューヌRe;Birth1 | 32-bit games don't support plugins |
+| 超次次元ゲイム ネプテューヌRe;Birth2 SISTERS GENERATION | 32-bit games don't support plugins |
+| 神次次元ゲイム ネプテューヌRe;Birth3 V CENTURY | 32-bit games don't support plugins |
+
+</details>
+
+<details>
+  <summary>List of games not compatible with SaltyNX at all</summary>
+
+| Title | Why? |
+| ------------- | ------------- |
+| Witcher 3 GOTY (version 3.2) | heap related |
+</details>
+Titles in exceptions.txt are treated as part of Blacklist, you can find it in root of repo. SaltyNX reads it from SaltySD folder. Normal titleid blocks only loading plugins, `X` at the beginning of titleid means that SaltyNX won't inject Core at all. `R` at the beginning of titleid means that SaltyNX won't inject Core at all if romfs mod for this game is installed. 32-bit games are ignored by default for plugins.
 
 ---
 
 # Thanks to
 - `Cooler3D` for sharing code with me how he was changing handheld display refresh rate in his tools that were first publicly available tools allowing this on HOS. I have used that as basis to make my own function.
 
-# List of titles not compatible with plugins/patches
-
-| Title | plugins/all | Why? |
-| ------------- | ------------- | ------------- |
-| Alien: Isolation | plugins | Heap related |
-| Azure Striker Gunvolt: Striker Pack | plugins | 32-bit game, not supported |
-| Baldur's Gate and Baldur's Gate II: Enhanced Editions | plugins | 32-bit game, not supported |
-| CelDamage HD | plugins | 32-bit game, not supported |
-| Company of Heroes Collection | plugins | heap related |
-| DEADLY PREMONITION Origins | plugins | 32-bit game, not supported |
-| Death Road to Canada | all | heap related |
-| Dies irae Amantes amentes For Nintendo Switch | plugins | 32-bit game, not supported |
-| Donkey Kong Country: Tropical Freeze | all | From second level heap issues |
-| EA SPORTS FC 24 | plugins | heap related |
-| Goat Simulator | plugins | 32-bit game, not supported |
-| Gothic | plugins | 32-bit game, not supported |
-| Grandia Collection | plugins | Only launcher is 64-bit, actual games are 32-bit, so not supported |
-| Grid: Autosport | plugins | Heap related |
-| Immortals Fenyx Rising | plugins | Heap related |
-| LIMBO | plugins | 32-bit game, not supported |
-| Luigi's Mansions 2 HD | plugins | 32-bit game, not supported |
-| Luigi's Mansion 3 | plugins | Heap related |
-| Mario Kart 8 Deluxe (1.0.0-3.0.3)| plugins | 32-bit game, not supported |
-| Mario Strikers: Battle League | plugins | Heap related |
-| Megadimension Neptunia VII | plugins | 32-bit game, not supported |
-| Moero Chronicle Hyper | plugins | 32-bit game, not supported |
-| Moero Crystal H | plugins | 32-bit game, not supported |
-| Monster Hunter Generations Ultimate | plugins | 32-bit game, not supported |
-| Monster Hunter XX Nintendo Switch Ver. | plugins | 32-bit game, not supported |
-| New Super Mario Bros. U Deluxe | plugins | 32-bit game, not supported |
-| Ni no Kuni: Wrath of the White Witch | plugins | 32-bit game, not supported |
-| Olympic Games Tokyo 2020 – The Official Video Game™ | all | Heap related |
-| Pikmin 3 Deluxe | plugins | 32-bit game, not supported |
-| Planescape: Torment and Icewind Dale | plugins | 32-bit game, not supported |
-| Plants vs. Zombies: Battle for Neighborville | plugins | Heap related |
-| Radiant Silvergun | plugins | 32-bit game, not supported |
-| Sherlock Holmes and The Hound of The Baskervilles | plugins | 32-bit game, not supported |
-| Splatoon 3 | all | Crashes after online match |
-| Stubbs the Zombie in Rebel Without a Pulse | all | heap related |
-| The Lara Croft Collection | plugins | heap related |
-| Tokyo Mirage Session #FE Encore | plugins | 32-bit game, not supported |
-| Valkyria Chronicles | plugins | 32-bit game, not supported |
-| Witcher 3 GOTY (version 3.2) | all | heap related |
-| World of Goo | plugins | 32-bit game, not supported |
-| YouTube | plugins | Unknown |
-| 超次次元ゲイム ネプテューヌRe;Birth1 | plugins | 32-bit game, not supported |
-| 超次次元ゲイム ネプテューヌRe;Birth2 SISTERS GENERATION | plugins | 32-bit game, not supported |
-| 神次次元ゲイム ネプテューヌRe;Birth3 V CENTURY | plugins | 32-bit game, not supported |
-
-Titles in exceptions.txt are treated as part of Blacklist, you can find it in root of repo. SaltyNX reads it from SaltySD folder. `X` at the beginning of titleid means that this game will not load any patches and plugins. `R` at the beginning of titleid means that this game will not load any patches and plugins if romfs mod for this game is installed.
-
-32-bit games are ignored by default for plugins.
+# Other
+`Claude` was used to:
+ - cleanup `libnx32_min` from unused files and add files to make it independent from newlib shipped with DevkitARM which was breaking PIE compilation
+ - Fix `bootstrap32` code to generate properly position independent ELF
+ - `core32` and `bootstrap32` now relocate themselves instead of sysmodule doing that for them (fixing an issue with pointers needed relocating in read only sections)
+ - Add support for showing logo via shader
+ - Implement my design for triple buffer workaround targeting memory hardcoded double buffer games

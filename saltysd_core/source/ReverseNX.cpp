@@ -1,74 +1,110 @@
+#if defined(SWITCH32)
 #include <switch_min.h>
+#define NX_PACKED PACKED
+#define InfoType_ProgramId InfoType_TitleId
+#define AppletMessage_OperationModeChanged AppletNotificationMessage_OperationModeChanged
+#define AppletMessage_PerformanceModeChanged AppletNotificationMessage_PerformanceModeChanged
+#elif defined(SWITCH)
+#include <switch.h>
+#else
+#error "Unsupported base architecture!"
+#endif
 
 #include "saltysd_core.h"
 #include "saltysd_ipc.h"
 #include "saltysd_dynamic.h"
 #include <cerrno>
+#include <utility>
+#include "nanoprintf.h"
 
-enum ReverseNX_state {
+enum ReverseNX_state : int8_t {
 	ReverseNX_Switch_Invalid = -1,
 	ReverseNX_Switch_Handheld = 0,
 	ReverseNX_Switch_Docked = 1
 };
 
 struct ReverseNX_save {
-	char MAGIC[4];
+	uint32_t MAGIC;
 	uint8_t version;
-	uint8_t state;
+	ReverseNX_state state;
 } NX_PACKED;
 
-struct SystemEvent {
-	const char reserved[16];
-	bool flag;
+static_assert(sizeof(ReverseNX_save) == 6);
+
+namespace nn { 
+	namespace os {
+		struct SystemEvent {
+			char reserved[8];
+		};
+		struct SystemEventType : public SystemEvent {
+			SystemEventType() = default;
+
+			SystemEventType(const SystemEvent& base) : SystemEvent(base) {}
+		};
+
+		struct MultiWaitHolderType {
+			char reserved[8];
+		};
+		struct MultiWaitType {
+			char reserved[8];
+		};
+
+		static bool (*TryWaitSystemEvent)(SystemEventType*);
+		static void (*WaitSystemEvent)(SystemEventType*);
+		static void (*InitializeMultiWaitHolder)(MultiWaitHolderType*, SystemEventType*);
+		static void (*LinkMultiWaitHolder)(MultiWaitType*, MultiWaitHolderType*);
+		static void* (*WaitAny)(MultiWaitType*);
+		static void* (*TimedWaitAny)(MultiWaitType*, uint64_t);
+
+	}
+	
+	namespace oe {
+		static u32 (*GetPerformanceMode)();
+		static u8 (*GetOperationMode)();
+		static bool (*TryPopNotificationMessage)(uint32_t* Message);
+		static uint32_t (*PopNotificationMessage)();
+		static void (*GetDefaultDisplayResolution)(int* width, int* height);
+		static void (*GetDefaultDisplayResolutionChangeEvent)(nn::os::SystemEvent* systemEvent);
+		static nn::os::SystemEvent* (*GetNotificationMessageEvent)();
+	}
+}
+
+enum res_mode {
+	res_mode_default = 0,
+	res_mode_480p = 1,
+	res_mode_540p = 2,
+	res_mode_630p = 3,
+	res_mode_720p = 4,
+	res_mode_810p = 5,
+	res_mode_900p = 6,
+	res_mode_1080p = 7,
+	res_mode_amount = 8
 };
 
-typedef u32 (*_ZN2nn2oe18GetPerformanceModeEv)();
-typedef u8 (*_ZN2nn2oe16GetOperationModeEv)();
-typedef bool (*_ZN2nn2oe25TryPopNotificationMessageEPj)(int &Message);
-typedef int (*_ZN2nn2oe22PopNotificationMessageEv)();
-typedef void (*_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(int* width, int* height);
-typedef void (*_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE)(SystemEvent* systemEvent);
-typedef bool (*nnosTryWaitSystemEvent)(SystemEvent* systemEvent);
-typedef void (*nnosWaitSystemEvent)(SystemEvent* systemEvent);
-typedef SystemEvent* (*_ZN2nn2oe27GetNotificationMessageEventEv)();
-typedef void (*nnosInitializeMultiWaitHolderForSystemEvent)(void* MultiWaitHolderType, SystemEvent* systemEvent);
-typedef void (*nnosLinkMultiWaitHolder)(void* MultiWaitType, void* MultiWaitHolderType);
-typedef void* (*nnosWaitAny)(void* MultiWaitType);
-typedef void* (*nnosTimedWaitAny)(void* MultiWaitType, u64 TimeSpan);
-
-struct {
-	uintptr_t GetPerformanceMode;
-	uintptr_t GetOperationMode;
-	uintptr_t TryPopNotificationMessage;
-	uintptr_t PopNotificationMessage;
-	uintptr_t GetDefaultDisplayResolution;
-	uintptr_t GetDefaultDisplayResolutionChangeEvent;
-	uintptr_t TryWaitSystemEvent;
-	uintptr_t WaitSystemEvent;
-	uintptr_t GetNotificationMessageEvent;
-	uintptr_t InitializeMultiWaitHolderForSystemEvent;
-	uintptr_t LinkMultiWaitHolder;
-	uintptr_t WaitAny;
-	uintptr_t TimedWaitAny;	
-} Address_weaks;
+std::pair<int, int> resolutions[] = {{0 ,0}, {854, 480}, {960, 540}, {1120, 630}, {1280, 720}, {1440, 810}, {1600, 900}, {1920, 1080}};
 
 struct Shared {
 	uint32_t MAGIC;
 	bool isDocked;
 	bool def;
 	bool pluginActive;
-} PACKED;
+	struct {
+		res_mode handheld_res: 4;
+		res_mode docked_res: 4;
+	} NX_PACKED res;
+	bool wasDDRused;
+} NX_PACKED;
+
+static_assert(sizeof(Shared) == 9);
 
 Shared* ReverseNX_RT;
 
-const char* ver = "3.0.1";
-
 ptrdiff_t SharedMemoryOffset2 = -1;
 
-SystemEvent* defaultDisplayResolutionChangeEventCopy = 0;
-SystemEvent* notificationMessageEventCopy = 0;
-void* multiWaitHolderCopy = 0;
-void* multiWaitCopy = 0;
+nn::os::SystemEvent* defaultDisplayResolutionChangeEventCopy = 0;
+nn::os::SystemEvent* notificationMessageEventCopy = 0;
+nn::os::MultiWaitHolderType* multiWaitHolderCopy = 0;
+nn::os::MultiWaitType* multiWaitCopy = 0;
 bool multiWaitHack = false;
 
 static uint32_t* sharedOperationMode = 0;
@@ -76,34 +112,44 @@ static uint32_t* sharedOperationMode = 0;
 ReverseNX_state loadSave() {
 	char path[128];
     uint64_t titid = 0;
-    svcGetInfo(&titid, InfoType_TitleId, CUR_PROCESS_HANDLE, 0);	
-	snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/ReverseNX-RT/%016lX.dat", titid);
+    svcGetInfo(&titid, InfoType_ProgramId, CUR_PROCESS_HANDLE, 0);
+	#if defined(SWITCH32) || defined(OUNCE32)
+	npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/ReverseNX-RT/%016llX.dat", titid);
+	#else
+	npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/ReverseNX-RT/%016lX.dat", titid);
+	#endif
 	errno = 0;
 	FILE* save_file = SaltySDCore_fopen(path, "rb");
 	if (save_file) {
-		uint32_t MAGIC = 0;
-		SaltySDCore_fread(&MAGIC, 4, 1, save_file);
-		if (MAGIC != 0x5452584E) {
+		ReverseNX_save header;
+		SaltySDCore_fread(&header, sizeof(header), 1, save_file);
+		if (header.MAGIC != *(uint32_t*)&"NXRT") {
 			SaltySDCore_fclose(save_file);
 			SaltySDCore_printf("ReverseNX: Save had wrong magic!\n", path);
 			return ReverseNX_Switch_Invalid;
 		}
-		uint8_t version = 0;
-		SaltySDCore_fread(&version, 1, 1, save_file);
-		if (version != 1) {
+		if (header.version != 1 && header.version != 2) {
 			SaltySDCore_fclose(save_file);
 			SaltySDCore_printf("ReverseNX: Save had wrong version!\n", path);
 			return ReverseNX_Switch_Invalid;
 		}
-		uint8_t state = ReverseNX_Switch_Invalid;
-		SaltySDCore_fread(&state, 1, 1, save_file);
+		if (header.version == 2) {
+			int8_t res_mode_h = -1;
+			SaltySDCore_fread(&res_mode_h, 1, 1, save_file);
+			int8_t res_mode_d = -1;
+			SaltySDCore_fread(&res_mode_d, 1, 1, save_file);
+			if (res_mode_h >= 0 && res_mode_h < res_mode_amount && res_mode_d >= 0 && res_mode_d < res_mode_amount) {
+				ReverseNX_RT->res.handheld_res = (res_mode)res_mode_h;
+				ReverseNX_RT->res.docked_res = (res_mode)res_mode_d;
+			}
+		}
 		SaltySDCore_fclose(save_file);
-		if (state > ReverseNX_Switch_Docked) {
+		if (header.state > ReverseNX_Switch_Docked || header.state < ReverseNX_Switch_Handheld) {
 			SaltySDCore_printf("ReverseNX: Save had wrong state!\n", path);
 			return ReverseNX_Switch_Invalid;
 		}
 		SaltySDCore_printf("ReverseNX: Save loaded successfully!\n", path);
-		return (ReverseNX_state)state;
+		return header.state;
 	}
 	else {
 		if (errno == -2)
@@ -113,58 +159,58 @@ ReverseNX_state loadSave() {
 	}
 }
 
-bool TryPopNotificationMessage(int &msg) {
+bool TryPopNotificationMessage(uint32_t* msg) {
 
 	static bool check1 = true;
 	static bool check2 = true;
 	static bool compare = false;
 	static bool compare2 = false;
 
-	ReverseNX_RT->pluginActive = true;
+	if (!ReverseNX_RT->pluginActive) ReverseNX_RT->pluginActive = true;
 
 	if (ReverseNX_RT->def) {
 		if (!check1) {
+			*msg = AppletMessage_OperationModeChanged;
 			check1 = true;
-			msg = 0x1f;
 			return true;
 		}
 		else if (!check2) {
+			*msg = AppletMessage_PerformanceModeChanged;
 			check2 = true;
-			msg = 0x1e;
 			return true;
 		}
 		else if (multiWaitHack == true) {
+			*msg = 0xFF;
 			multiWaitHack = false;
-			msg = 0xFF;
 			return true;
 		}
-		else return ((_ZN2nn2oe25TryPopNotificationMessageEPj)(Address_weaks.TryPopNotificationMessage))(msg);
+		else return nn::oe::TryPopNotificationMessage(msg);
 	}
 	
 	check1 = false;
 	check2 = false;
 	if (compare2 != ReverseNX_RT->isDocked) {
+		*msg = AppletMessage_OperationModeChanged;
 		compare2 = ReverseNX_RT->isDocked;
-		msg = 0x1f;
 		return true;
 	}
 	if (compare != ReverseNX_RT->isDocked) {
+		*msg = AppletMessage_PerformanceModeChanged;
 		compare = ReverseNX_RT->isDocked;
-		msg = 0x1e;
 		return true;
 	}
 	if (multiWaitHack == true) {
+		*msg = 0xFF;
 		multiWaitHack = false;
-		msg = 0xFF;
 		return true;
 	}
-	return ((_ZN2nn2oe25TryPopNotificationMessageEPj)(Address_weaks.TryPopNotificationMessage))(msg);
+	return nn::oe::TryPopNotificationMessage(msg);
 }
 
 int PopNotificationMessage() {
+	uint32_t msg = 0;
 	while (true) {
-		int msg = 0;
-		if (TryPopNotificationMessage(msg)) {
+		if (TryPopNotificationMessage(&msg)) {
 			return msg;
 		}
 		svcSleepThread(1000000);
@@ -172,7 +218,7 @@ int PopNotificationMessage() {
 }
 
 uint32_t GetPerformanceMode() {
-	*sharedOperationMode = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
+	*sharedOperationMode = nn::oe::GetPerformanceMode();
 	if (ReverseNX_RT->def) ReverseNX_RT->isDocked = *sharedOperationMode;
 	
 	return ReverseNX_RT->isDocked;
@@ -180,8 +226,8 @@ uint32_t GetPerformanceMode() {
 
 uint8_t GetOperationMode() {
 	//Fix for Unravel Two that calls this function constantly without checking notifications
-	ReverseNX_RT->pluginActive = true;
-	*sharedOperationMode = ((_ZN2nn2oe16GetOperationModeEv)(Address_weaks.GetOperationMode))();
+	if (!ReverseNX_RT->pluginActive) ReverseNX_RT->pluginActive = true;
+	*sharedOperationMode = nn::oe::GetOperationMode();
 	if (ReverseNX_RT->def) ReverseNX_RT->isDocked = *sharedOperationMode;
 	
 	return ReverseNX_RT->isDocked;
@@ -206,67 +252,89 @@ uint8_t GetOperationMode() {
 
 */
 void GetDefaultDisplayResolution(int* width, int* height) {
+	if (ReverseNX_RT->wasDDRused == false) {
+		ReverseNX_RT->wasDDRused = true;
+		ReverseNX_RT->pluginActive = true;
+	}
+	*sharedOperationMode = nn::oe::GetPerformanceMode();
 	if (ReverseNX_RT->def) {
-		((_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(Address_weaks.GetDefaultDisplayResolution))(width, height);
-		ReverseNX_RT->isDocked = ((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))();
+		nn::oe::GetDefaultDisplayResolution(width, height);
+		ReverseNX_RT->isDocked = *sharedOperationMode;
 	}
 	else {
-		if (ReverseNX_RT->isDocked) {
-			if (((_ZN2nn2oe18GetPerformanceModeEv)(Address_weaks.GetPerformanceMode))()) {
-				return ((_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_)(Address_weaks.GetDefaultDisplayResolution))(width, height);
-			}
-			else {
-				*width = 1920;
-				*height = 1080;
-			}
+		if (*sharedOperationMode && ReverseNX_RT->isDocked && ReverseNX_RT->res.docked_res == res_mode_default) {
+			nn::oe::GetDefaultDisplayResolution(width, height);
+			return;
 		}
-		else {
+		if (*sharedOperationMode && !(ReverseNX_RT->isDocked) && ReverseNX_RT->res.handheld_res == res_mode_default) {
 			*width = 1280;
 			*height = 720;
+			return;
 		}
+		if (!*sharedOperationMode && !(ReverseNX_RT->isDocked) && ReverseNX_RT->res.handheld_res == res_mode_default) {
+			nn::oe::GetDefaultDisplayResolution(width, height);
+			return;
+		}
+		if (!*sharedOperationMode && (ReverseNX_RT->isDocked) && ReverseNX_RT->res.docked_res == res_mode_default) {
+			*width = 1920;
+			*height = 1080;
+			return;
+		}
+		res_mode res = ReverseNX_RT->isDocked ? ReverseNX_RT->res.docked_res : ReverseNX_RT->res.handheld_res;
+		if (res == res_mode_default) {
+			nn::oe::GetDefaultDisplayResolution(width, height);
+			return;
+		}
+		*width = resolutions[res].first;
+		*height = resolutions[res].second;
 	}
 }
 
-void GetDefaultDisplayResolutionChangeEvent(SystemEvent* systemEvent) {
-	((_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE)(Address_weaks.GetDefaultDisplayResolutionChangeEvent))(systemEvent);
+void GetDefaultDisplayResolutionChangeEvent(nn::os::SystemEvent* systemEvent) {
+	nn::oe::GetDefaultDisplayResolutionChangeEvent(systemEvent);
 	defaultDisplayResolutionChangeEventCopy = systemEvent;
 }
 
-bool TryWaitSystemEvent(SystemEvent* systemEvent) {
+bool TryWaitSystemEvent(nn::os::SystemEventType* systemEvent) {
 	static bool check = true;
 	static bool compare = false;
+	static uint8_t compare_res_mode_h = 0;
+	static uint8_t compare_res_mode_d = 0;
 
-	if (systemEvent != defaultDisplayResolutionChangeEventCopy || ReverseNX_RT->def) {
-		bool ret = ((nnosTryWaitSystemEvent)(Address_weaks.TryWaitSystemEvent))(systemEvent);
+	if (systemEvent != defaultDisplayResolutionChangeEventCopy && systemEvent != notificationMessageEventCopy) 
+		return nn::os::TryWaitSystemEvent(systemEvent);
+
+	if (ReverseNX_RT->def) {
+		bool ret = nn::os::TryWaitSystemEvent(systemEvent);
 		compare = ReverseNX_RT->isDocked;
-		if (systemEvent == defaultDisplayResolutionChangeEventCopy && !check) {
+		if (!check) {
 			check = true;
 			return true;
 		}
 		return ret;
 	}
+	bool last_check = check;
 	check = false;
-	if (systemEvent == defaultDisplayResolutionChangeEventCopy) {
-		if (compare != ReverseNX_RT->isDocked) {
-			compare = ReverseNX_RT->isDocked;
-			return true;
-		}
-		return false;
+	bool ret = nn::os::TryWaitSystemEvent(systemEvent);
+	if (last_check || ret || compare != ReverseNX_RT->isDocked || compare_res_mode_d != ReverseNX_RT->res.docked_res || compare_res_mode_h != ReverseNX_RT->res.handheld_res) {
+		compare = ReverseNX_RT->isDocked;
+		compare_res_mode_d = ReverseNX_RT->res.docked_res;
+		compare_res_mode_h = ReverseNX_RT->res.handheld_res;
+		return true;
 	}
-	return ((nnosTryWaitSystemEvent)(Address_weaks.TryWaitSystemEvent))(systemEvent);
+	return false;
 }
 
-void WaitSystemEvent(SystemEvent* systemEvent) {
+void WaitSystemEvent(nn::os::SystemEventType* systemEvent) {
 	if (systemEvent == defaultDisplayResolutionChangeEventCopy) {
-		ReverseNX_RT->pluginActive = true;
 		while(true) {
 			bool return_now = TryWaitSystemEvent(systemEvent);
 			if (return_now)
 				return;
-			svcSleepThread(1'000'000);
+			svcSleepThread(20'000'000);
 		}
 	}
-	return ((nnosWaitSystemEvent)(Address_weaks.WaitSystemEvent))(systemEvent);
+	return nn::os::WaitSystemEvent(systemEvent);
 }
 
 /* 
@@ -281,28 +349,28 @@ void WaitSystemEvent(SystemEvent* systemEvent) {
 	so even though this is not a clean solution, it works and performance impact is negligible.
 */
 
-SystemEvent* GetNotificationMessageEvent() {
-	notificationMessageEventCopy = ((_ZN2nn2oe27GetNotificationMessageEventEv)(Address_weaks.GetNotificationMessageEvent))();
+nn::os::SystemEvent* GetNotificationMessageEvent() {
+	notificationMessageEventCopy = nn::oe::GetNotificationMessageEvent();
 	return notificationMessageEventCopy;
 }
 
-void InitializeMultiWaitHolder(void* MultiWaitHolderType, SystemEvent* systemEvent) {
-	((nnosInitializeMultiWaitHolderForSystemEvent)(Address_weaks.InitializeMultiWaitHolderForSystemEvent))(MultiWaitHolderType, systemEvent);
+void InitializeMultiWaitHolder(nn::os::MultiWaitHolderType* MultiWaitHolderType, nn::os::SystemEventType* systemEvent) {
+	nn::os::InitializeMultiWaitHolder(MultiWaitHolderType, systemEvent);
 	if (systemEvent == notificationMessageEventCopy) 
 		multiWaitHolderCopy = MultiWaitHolderType;
 }
 
-void LinkMultiWaitHolder(void* MultiWaitType, void* MultiWaitHolderType) {
-	((nnosLinkMultiWaitHolder)(Address_weaks.LinkMultiWaitHolder))(MultiWaitType, MultiWaitHolderType);
+void LinkMultiWaitHolder(nn::os::MultiWaitType* MultiWaitType, nn::os::MultiWaitHolderType* MultiWaitHolderType) {
+	nn::os::LinkMultiWaitHolder(MultiWaitType, MultiWaitHolderType);
 	if (MultiWaitHolderType == multiWaitHolderCopy)
 		multiWaitCopy = MultiWaitType;
 }
 
-void* WaitAny(void* MultiWaitType) {
+void* WaitAny(nn::os::MultiWaitType* MultiWaitType) {
 	if (multiWaitCopy != MultiWaitType)
-		return ((nnosWaitAny)(Address_weaks.WaitAny))(MultiWaitType);
-	ReverseNX_RT->pluginActive = true;
-	void* ret_value = ((nnosTimedWaitAny)(Address_weaks.TimedWaitAny))(MultiWaitType, 1000000);
+		return nn::os::WaitAny(MultiWaitType);
+	if (!ReverseNX_RT->pluginActive) ReverseNX_RT->pluginActive = true;
+	void* ret_value = nn::os::TimedWaitAny(MultiWaitType, 1000000);
 	if (ret_value != NULL) return ret_value;
 	multiWaitHack = true;
 	return multiWaitHolderCopy;
@@ -317,8 +385,8 @@ extern "C" {
 		if (!ret) {
 			SaltySDCore_printf("ReverseNX: SharedMemory MemoryOffset: %d\n", SharedMemoryOffset2);
 
-			ReverseNX_RT = (Shared*)((uintptr_t)shmemGetAddr(_sharedmemory) + SharedMemoryOffset2);
-			ReverseNX_RT->MAGIC = 0x5452584E;
+			ReverseNX_RT = (Shared*)__builtin_assume_aligned((const void*)((uintptr_t)shmemGetAddr(_sharedmemory) + SharedMemoryOffset2), 4);
+			ReverseNX_RT->MAGIC = *(uint32_t*)&"NXRT";
 			ReverseNX_RT->pluginActive = false;
 			ReverseNX_state state = loadSave();
 			if (state == ReverseNX_Switch_Docked || state == ReverseNX_Switch_Handheld) {
@@ -327,21 +395,35 @@ extern "C" {
 			}
 			else {
 				ReverseNX_RT->isDocked = false;
-				ReverseNX_RT->def = true;				
+				ReverseNX_RT->def = true;
 			}
-			Address_weaks.GetPerformanceMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe18GetPerformanceModeEv");
-			Address_weaks.GetOperationMode = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
-			Address_weaks.TryPopNotificationMessage = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe25TryPopNotificationMessageEPj");
-			Address_weaks.PopNotificationMessage = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe22PopNotificationMessageEv");
-			Address_weaks.GetDefaultDisplayResolution = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_");
-			Address_weaks.GetDefaultDisplayResolutionChangeEvent = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE");
-			Address_weaks.TryWaitSystemEvent = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os18TryWaitSystemEventEPNS0_15SystemEventTypeE");
-			Address_weaks.WaitSystemEvent = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os15WaitSystemEventEPNS0_15SystemEventTypeE");
-			Address_weaks.GetNotificationMessageEvent = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe27GetNotificationMessageEventEv");
-			Address_weaks.InitializeMultiWaitHolderForSystemEvent = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os25InitializeMultiWaitHolderEPNS0_19MultiWaitHolderTypeEPNS0_15SystemEventTypeE");
-			Address_weaks.LinkMultiWaitHolder = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os19LinkMultiWaitHolderEPNS0_13MultiWaitTypeEPNS0_19MultiWaitHolderTypeE");
-			Address_weaks.WaitAny = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os7WaitAnyEPNS0_13MultiWaitTypeE");
-			Address_weaks.TimedWaitAny = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os12TimedWaitAnyEPNS0_13MultiWaitTypeENS_8TimeSpanE");
+			
+			uintptr_t addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe18GetPerformanceModeEv");
+			*(void**)&nn::oe::GetPerformanceMode = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe16GetOperationModeEv");
+			*(void**)&nn::oe::GetOperationMode = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe25TryPopNotificationMessageEPj");
+			*(void**)&nn::oe::TryPopNotificationMessage = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe22PopNotificationMessageEv");
+			*(void**)&nn::oe::PopNotificationMessage = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe27GetDefaultDisplayResolutionEPiS1_");
+			*(void**)&nn::oe::GetDefaultDisplayResolution = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe38GetDefaultDisplayResolutionChangeEventEPNS_2os11SystemEventE");
+			*(void**)&nn::oe::GetDefaultDisplayResolutionChangeEvent = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os18TryWaitSystemEventEPNS0_15SystemEventTypeE");
+			*(void**)&nn::os::TryWaitSystemEvent = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os15WaitSystemEventEPNS0_15SystemEventTypeE");
+			*(void**)&nn::os::WaitSystemEvent = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2oe27GetNotificationMessageEventEv");
+			*(void**)&nn::oe::GetNotificationMessageEvent = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os25InitializeMultiWaitHolderEPNS0_19MultiWaitHolderTypeEPNS0_15SystemEventTypeE");
+			*(void**)&nn::os::InitializeMultiWaitHolder = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os19LinkMultiWaitHolderEPNS0_13MultiWaitTypeEPNS0_19MultiWaitHolderTypeE");
+			*(void**)&nn::os::LinkMultiWaitHolder = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os7WaitAnyEPNS0_13MultiWaitTypeE");
+			*(void**)&nn::os::WaitAny = (void*)addr;
+			addr = SaltySDCore_FindSymbolBuiltin("_ZN2nn2os12TimedWaitAnyEPNS0_13MultiWaitTypeENS_8TimeSpanE");
+			*(void**)&nn::os::TimedWaitAny = (void*)addr;
 			SaltySDCore_ReplaceImport("_ZN2nn2oe25TryPopNotificationMessageEPj", (void*)TryPopNotificationMessage);
 			SaltySDCore_ReplaceImport("_ZN2nn2oe22PopNotificationMessageEv", (void*)PopNotificationMessage);
 			SaltySDCore_ReplaceImport("_ZN2nn2oe18GetPerformanceModeEv", (void*)GetPerformanceMode);
@@ -354,6 +436,7 @@ extern "C" {
 			SaltySDCore_ReplaceImport("_ZN2nn2os25InitializeMultiWaitHolderEPNS0_19MultiWaitHolderTypeEPNS0_15SystemEventTypeE", (void*)InitializeMultiWaitHolder);
 			SaltySDCore_ReplaceImport("_ZN2nn2os19LinkMultiWaitHolderEPNS0_13MultiWaitTypeEPNS0_19MultiWaitHolderTypeE", (void*)LinkMultiWaitHolder);
 			SaltySDCore_ReplaceImport("_ZN2nn2os7WaitAnyEPNS0_13MultiWaitTypeE", (void*)WaitAny);
+
 		}
 		
 		SaltySDCore_printf("ReverseNX: injection finished\n");

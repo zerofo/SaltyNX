@@ -3,10 +3,8 @@
 #include "runtime/hosversion.h"
 #include "services/sm.h"
 #include "services/fatal.h"
-#include "services/hid.h"
 #include "services/time.h"
 #include "services/applet.h"
-#include "services/set.h"
 
 void* __stack_top;
 void NORETURN __nx_exit(Result rc, LoaderReturnFn retaddr);
@@ -60,9 +58,9 @@ ThreadExceptionDump __nx_exceptiondump;
 
 void __attribute__((weak)) __libnx_initheap(void)
 {
-    void*  addr;
+    void*  addr = 0;
     size_t size = 0;
-    size_t mem_available = 0, mem_used = 0;
+    //size_t mem_available = 0, mem_used = 0;
 
     // Newlib
     extern char* fake_heap_start;
@@ -75,58 +73,12 @@ void __attribute__((weak)) __libnx_initheap(void)
 void __attribute__((weak)) __nx_win_init(void);
 void __attribute__((weak)) userAppInit(void);
 
-void __attribute__((weak)) __appInit(void)
-{
-    Result rc;
-
-    // Initialize default services.
-    rc = smInitialize();
-    if (R_FAILED(rc))
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
-
-    rc = setsysInitialize();
-    if (R_SUCCEEDED(rc)) {
-        SetSysFirmwareVersion fw;
-        rc = setsysGetFirmwareVersion(&fw);
-        if (R_SUCCEEDED(rc))
-            hosversionSet(MAKEHOSVERSION(fw.major, fw.minor, fw.micro));
-        setsysExit();
-    }
-
-    rc = appletInitialize();
-    if (R_FAILED(rc))
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_AM));
-
-    if (__nx_applet_type != AppletType_None) {
-        rc = hidInitialize();
-        if (R_FAILED(rc))
-            fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_HID));
-    }
-
-    rc = timeInitialize();
-    if (R_FAILED(rc))
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_Time));
-
-    __libnx_init_time();
-
-    if (&__nx_win_init) __nx_win_init();
-    if (&userAppInit) userAppInit();
-}
+void __attribute__((weak)) __appInit(void) {}
 
 void __attribute__((weak)) userAppExit(void);
 void __attribute__((weak)) __nx_win_exit(void);
 
-void __attribute__((weak)) __appExit(void)
-{
-    if (&userAppExit) userAppExit();
-    if (&__nx_win_exit) __nx_win_exit();
-
-    // Cleanup default services.
-    timeExit();
-    hidExit();
-    appletExit();
-    smExit();
-}
+void __attribute__((weak)) __appExit(void) {}
 
 void __attribute__((weak)) __libnx_init(void* ctx, Handle main_thread, void* saved_lr)
 {

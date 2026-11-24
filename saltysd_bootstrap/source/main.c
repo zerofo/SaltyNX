@@ -1,16 +1,33 @@
+#ifdef SWITCH
+#include <switch.h>
+#include "ipc.h"
+#elif SWITCH32
 #include <switch_min.h>
+#else
+#error "Unsupported base architecture!"
+#endif
 
 #include <string.h>
 #include <stdio.h>
+
+#if defined(SWITCH) || defined(OUNCE)
 #include "printf.h"
 
 #define write_log(...) \
 	{char log_buf[0x200]; snprintf_(log_buf, 0x200, __VA_ARGS__); \
 	svcOutputDebugString(log_buf, _strlen(log_buf));}
 
-void* __saltysd_exit_func = svcExitProcess;
+#endif
 
-Result saltySDTerm(Handle salt)
+#include "bootstate.h"
+
+#if !defined(__arm__) // 32-bit: these are BootState fields (bootstate.h)
+// Set to svcExitProcess by __rel_init (a runtime store, so this needs no relocation), later to the game's entry.
+void* __saltysd_exit_func;
+Handle saltysd;
+#endif
+
+Result saltySDTerm()
 {
 	Result ret;
 	IpcCommand c;
@@ -32,17 +49,17 @@ Result saltySDTerm(Handle salt)
 	raw->cmd_id = 0;
 	raw->zero = 0;
 
-	ret = ipcDispatch(salt);
+	ret = ipcDispatch(saltysd);
 
 	if (R_SUCCEEDED(ret)) 
 	{
 		IpcParsedCommand r;
 		ipcParse(&r);
 
-		struct {
+		struct respond {
 			u64 magic;
 			u64 result;
-		} *resp = r.Raw;
+		} *resp = (struct respond*)r.Raw;
 
 		ret = resp->result;
 	}
@@ -53,7 +70,7 @@ Result saltySDTerm(Handle salt)
 	return ret;
 }
 
-Result saltySDLoadELF(Handle salt, u64 heap, u64* elf_addr, u64* elf_size, char* name)
+Result saltySDLoadELF(uintptr_t heap, uintptr_t* elf_addr, size_t* elf_size, char* name)
 {
 	Result ret;
 	IpcCommand c;
@@ -78,19 +95,19 @@ Result saltySDLoadELF(Handle salt, u64 heap, u64* elf_addr, u64* elf_size, char*
 	raw->heap = heap;
 	memcpy(raw->name, name, 63);
 
-	ret = ipcDispatch(salt);
+	ret = ipcDispatch(saltysd);
 
 	if (R_SUCCEEDED(ret)) 
 	{
 		IpcParsedCommand r;
 		ipcParse(&r);
 
-		struct {
+		struct respond {
 			u64 magic;
 			u64 result;
 			u64 elf_addr;
 			u64 elf_size;
-		} *resp = r.Raw;
+		} *resp = (struct respond*)r.Raw;
 
 		ret = resp->result;
 		*elf_addr = resp->elf_addr;
@@ -100,58 +117,53 @@ Result saltySDLoadELF(Handle salt, u64 heap, u64* elf_addr, u64* elf_size, char*
 	return ret;
 }
 
-u64  g_heapAddr;
+#if !defined(__arm__)
+uintptr_t g_heapAddr;
 size_t g_heapSize;
+#endif
 
 void setupAppHeap(void)
 {
 	void* addr = 0;
-	Result rc = 0;
 
-	rc = svcSetHeapSize(&addr, 0x200000);
+	svcSetHeapSize(&addr, 0x400000);
 
-	if (rc || addr == 0)
-	{
-		write_log("SaltySD Bootstrap: svcSetHeapSize failed with err %x\n", rc);
-	}
-
-	g_heapAddr = (u64)addr;
+	g_heapAddr = (uintptr_t)addr;
 	g_heapSize = 0x200000;
 }
 
 int main(int argc, char *argv[])
 {
 	Result ret;
-	Handle saltysd;
 
+	#if defined(SWITCH) || defined(OUNCE)
 	write_log("SaltySD Bootstrap: we in here\n");
-	
-	setupAppHeap();
-	
+	#endif
+
 	do
 	{
 		ret = svcConnectToNamedPort(&saltysd, "SaltySD");
 		svcSleepThread(1000*1000);
 	}
 	while (ret);
+	
+	setupAppHeap();
 
-	write_log("SaltySD Bootstrap: Got handle %x, loading ELF...\n", saltysd);
-	u64 new_addr, new_size;
-	ret = saltySDLoadELF(saltysd, g_heapAddr, &new_addr, &new_size, "saltysd_core.elf");
+	uintptr_t new_addr;
+	size_t new_size;
+	#if defined(SWITCH32) || defined(OUNCE32)
+	ret = saltySDLoadELF(g_heapAddr, &new_addr, &new_size, "saltynx_core32.elf");
+	#else
+	ret = saltySDLoadELF(g_heapAddr, &new_addr, &new_size, "saltynx_core.elf");
+	#endif
 	if (ret) goto fail;
 	
-	ret = saltySDTerm(saltysd);
+	ret = saltySDTerm();
 	if (ret) goto fail;
 	
-	write_log("SaltySD Bootstrap: ELF loaded to %p\n", (void*)new_addr);
 	__saltysd_exit_func = (void*)new_addr;
-
-	svcCloseHandle(saltysd);
-
-	return 0;
-
 fail:
-	write_log("SaltySD Bootstrap: failed with retcode %x\n", ret);
+	svcCloseHandle(saltysd);
 	return 0;
 }
 
