@@ -108,11 +108,11 @@ static Result serviceLoadELF(IpcCommand* c) {
     bool arm32 = false;
     if (!strncmp(name, "saltynx_core32.elf", 18)) arm32 = true;
 
-    npf_snprintf(path, 96, "sdmc:/SaltySD/plugins/%s", name);
+    npf_snprintf(path, 96, "sdmc:/switch/SaltySD/plugins/%s", name);
     FILE* f = fopen(path, "rb");
     if (!f)
     {
-        npf_snprintf(path, 96, "sdmc:/SaltySD/%s", name);
+        npf_snprintf(path, 96, "sdmc:/switch/SaltySD/%s", name);
         f = fopen(path, "rb");
     }
 
@@ -425,11 +425,11 @@ static Result serviceSetDisplaySync() {
 
     displaySync = (bool)(resp -> value);
     if (displaySync) {
-        FILE* file = fopen("sdmc:/SaltySD/flags/displaysync.flag", "wb");
+        FILE* file = fopen("sdmc:/switch/SaltySD/flags/displaysync.flag", "wb");
         fclose(file);
     }
     else {
-        remove("sdmc:/SaltySD/flags/displaysync.flag");
+        remove("sdmc:/switch/SaltySD/flags/displaysync.flag");
     }
     SERVICE_LOG("%d", displaySync);
 
@@ -545,11 +545,11 @@ static Result serviceSetDisplaySyncDocked() {
 
     displaySyncDocked = (bool)(resp -> value);
     if (displaySyncDocked) {
-        FILE* file = fopen("sdmc:/SaltySD/flags/displaysyncdocked.flag", "wb");
+        FILE* file = fopen("sdmc:/switch/SaltySD/flags/displaysyncdocked.flag", "wb");
         fclose(file);
     }
     else {
-        remove("sdmc:/SaltySD/flags/displaysyncdocked.flag");
+        remove("sdmc:/switch/SaltySD/flags/displaysyncdocked.flag");
     }
     SERVICE_LOG("%d", displaySyncDocked);
 
@@ -576,11 +576,11 @@ static Result serviceSetDisplaySyncRefreshRate60WhenOutOfFocus() {
     else {
         displaySyncOutOfFocus60 = (bool)(resp -> value);
         if (displaySyncOutOfFocus60) {
-            FILE* file = fopen("sdmc:/SaltySD/flags/displaysync_outoffocus.flag", "wb");
+            FILE* file = fopen("sdmc:/switch/SaltySD/flags/displaysync_outoffocus.flag", "wb");
             fclose(file);
         }
         else {
-            remove("sdmc:/SaltySD/flags/displaysync_outoffocus.flag");
+            remove("sdmc:/switch/SaltySD/flags/displaysync_outoffocus.flag");
         }
         SERVICE_LOG("Handheld %d", displaySyncOutOfFocus60);
     }

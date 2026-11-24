@@ -63,7 +63,7 @@ static bool hijack_bootstrap(Handle* debug, u64 pid, u64 tid, bool isA64)
     uint64_t new_start = 0;
     if (isA64) {
         FILE* file = 0;
-        file = fopen("sdmc:/SaltySD/saltynx_bootstrap.elf", "rb");
+        file = fopen("sdmc:/switch/SaltySD/saltynx_bootstrap.elf", "rb");
         if (!file) {
             SaltyNX_printf(APP_NAME ": SaltySD/saltynx_bootstrap.elf not found, aborting...\n");
             svcCloseHandle(*debug);
@@ -115,7 +115,7 @@ void hijack_pid(u64 pid)
     s32 threads = 0;
     Handle debug;
         
-    if (file_or_directory_exists("sdmc:/SaltySD/flags/disable.flag") == true) {
+    if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/disable.flag") == true) {
         SaltyNX_printf(APP_NAME ": Detected disable.flag, aborting bootstrap...\n");
         return;
     }
@@ -189,7 +189,7 @@ void hijack_pid(u64 pid)
                 goto abort_bootstrap;
             }
             
-            FILE* except = fopen("sdmc:/SaltySD/exceptions.txt", "r");
+            FILE* except = fopen("sdmc:/switch/SaltySD/exceptions.txt", "r");
             if (except) {
                 char exceptions[20];
                 char titleidnumX[20];

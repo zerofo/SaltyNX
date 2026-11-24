@@ -1046,7 +1046,7 @@ extern "C" {
 			SaltySDCore_ReplaceImport("vkQueuePresentKHR", (void*)vk::QueuePresent);
 			SaltySDCore_ReplaceImport("_ZN11NvSwapchain15QueuePresentKHREP9VkQueue_TPK16VkPresentInfoKHR", (void*)vk::nvSwapchain::QueuePresent);
 			SaltySDCore_ReplaceImport("vkGetInstanceProcAddr", (void*)vk::GetInstanceProcAddr);
-			FILE* readFlag = SaltySDCore_fopen("sdmc:/SaltySD/flags/filestats.flag", "rb");
+			FILE* readFlag = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/filestats.flag", "rb");
 			if (readFlag) {
 				SaltySDCore_fclose(readFlag);
 				//For 32-bit it's different
@@ -1073,7 +1073,7 @@ extern "C" {
 						(Shared -> displaySync) = 1;
 					}
 					else SaltySD_SetDisplaySync(false);
-					sync_file = SaltySDCore_fopen("sdmc:/SaltySD/flags/displaysyncdocked.flag", "rb");
+					sync_file = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/displaysyncdocked.flag", "rb");
 					if  (sync_file) {
 						SaltySDCore_fclose(sync_file);
 						SaltySD_SetDisplaySyncDocked(true);

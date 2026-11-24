@@ -378,7 +378,7 @@ void LoadDockedModeAllowedSave() {
     }
     char path[128] = "";
     int crc32 = crc32Calculate(&edid, sizeof(edid));
-    npf_snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.dat", crc32);
+    npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.dat", crc32);
     if (file_or_directory_exists(path) == false) {
         FILE* file = fopen(path, "wb");
         if (file) {
@@ -387,7 +387,7 @@ void LoadDockedModeAllowedSave() {
         }
         else SaltyNX_printf(APP_NAME ": Couldn't dump EDID to sdcard!\n");
     }
-    npf_snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
+    npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
     if (file_or_directory_exists(path) == true) {
         FILE* file = fopen(path, "r");
         if (!file) {
@@ -604,7 +604,7 @@ bool setNvDispDockedRefreshRate(uint32_t new_refreshRate) {
         nvClose(fd);
         return false;
     }
-    if ((file_or_directory_exists("sdmc:/SaltySD/test.flag") == false) && DISPLAY_B.vActive != last_vActive_set) {
+    if ((file_or_directory_exists("sdmc:/switch/SaltySD/test.flag") == false) && DISPLAY_B.vActive != last_vActive_set) {
         last_vActive_set = DISPLAY_B.vActive;
         if (DISPLAY_B.vActive != 720 && DISPLAY_B.vActive != 1080) {
             memset(DockedModeRefreshRateAllowed, 0, sizeof(DockedModeRefreshRateAllowed));
@@ -785,7 +785,7 @@ extern "C" bool SetDisplayRefreshRate(uint32_t new_refreshRate) {
     u32 fd = 0;
     
     if (isLite && isPossiblySpoofedRetro) {
-        if (file_or_directory_exists("sdmc:/SaltySD/flags/retro.flag") == true)
+        if (file_or_directory_exists("sdmc:/switch/SaltySD/flags/retro.flag") == true)
             isRetroSUPER = true;
         else isRetroSUPER = false;
     }

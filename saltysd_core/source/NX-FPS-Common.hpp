@@ -381,7 +381,7 @@ namespace NX_FPS_Math {
 }
 
 inline void checkReadFlag(bool* out) {
-	FILE* readFlag = SaltySDCore_fopen("sdmc:/SaltySD/flags/blockfilestats.flag", "rb");
+	FILE* readFlag = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/blockfilestats.flag", "rb");
 	if (readFlag) {
 		SaltySDCore_fclose(readFlag);
 		*out = false;

@@ -22,7 +22,7 @@ extern "C" {
 			Shared -> MAGIC = 0x465053;
 			Shared->expectedSetBuffers = -1;
 
-			FILE* logo_file = SaltySDCore_fopen("sdmc:/SaltySD/flags/nologo.flag", "rb");
+			FILE* logo_file = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/nologo.flag", "rb");
 			if  (logo_file) {
 				SaltySDCore_fclose(logo_file);
 				NVN::Logo::done = true;
@@ -129,7 +129,7 @@ extern "C" {
 						Shared->displaySync.ds.handheld = true;
 					}
 					else SaltySD_SetDisplaySync(false);
-					sync_file = SaltySDCore_fopen("sdmc:/SaltySD/flags/displaysyncdocked.flag", "rb");
+					sync_file = SaltySDCore_fopen("sdmc:/switch/SaltySD/flags/displaysyncdocked.flag", "rb");
 					if  (sync_file) {
 						SaltySDCore_fclose(sync_file);
 						SaltySD_SetDisplaySyncDocked(true);
@@ -159,10 +159,10 @@ extern "C" {
 			}
 			else {
 				#if defined(SWITCH32) || defined(OUNCE32)
-				npf_snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
+				npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/patches/%016llX/%016llX.bin", titleid, buildid);
 				SaltySDCore_printf("NX-FPS: BID: %016llX\n", buildid);
 				#else
-				npf_snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/patches/%016lX/%016lX.bin", titleid, buildid);
+				npf_snprintf(path, sizeof(path), "sdmc:/switch/SaltySD/plugins/FPSLocker/patches/%016lX/%016lX.bin", titleid, buildid);
 				SaltySDCore_printf("NX-FPS: BID: %016lX\n", buildid);
 				#endif
 				FILE* patch_file = SaltySDCore_fopen(path, "rb");
